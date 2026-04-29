@@ -1,48 +1,99 @@
 # ollama-me
 
-Multi-backend LLM chat client with a Rich terminal UI, powered by local Ollama/Llama3.
-
-## What It Does
-
-- **Rich TUI** — styled chat interface with streaming markdown output
-- **Ollama/Llama3 backend** — fully working local inference via Ollama's REST API
-- **Router pattern** — swap backends by changing one string; stubs ready for Claude, GPT-4o, Grok, and small local models
-- **Multi-turn conversations** — maintains full chat history for context-aware responses
+`ollama-me` is a terminal chat app that routes prompts between local Ollama and optional cloud LLM backends. It streams responses token by token, keeps a bounded conversation context, and forces sensitive prompts to stay local.
 
 ## Requirements
 
-- [Ollama](https://ollama.com) installed and running (`ollama serve`)
-- Llama3 pulled (`ollama pull llama3`)
-- Python 3.10+
-- `rich` and `requests` (`pip install rich requests`)
+- Rust toolchain with Cargo
+- Ollama running locally for the default setup
+- A local Llama 3 model:
+
+```sh
+ollama pull llama3
+```
+
+Start Ollama if it is not already running:
+
+```sh
+ollama serve
+```
 
 ## Run
 
-```bash
-python3 main.py
+```sh
+cargo run
 ```
+
+By default, the app expects Ollama at `http://localhost:11434`. To use a different Ollama host:
+
+```sh
+export OLLAMA_HOST=http://127.0.0.1:11434
+cargo run
+```
+
+## Optional API Keys
+
+Cloud backends are disabled until their API key environment variables are present.
+
+```sh
+export ANTHROPIC_API_KEY=your_anthropic_key
+export OPENAI_API_KEY=your_openai_key
+export XAI_API_KEY=your_xai_key
+```
+
+You can also override model names:
+
+```sh
+export ANTHROPIC_MODEL=claude-sonnet-4-20250514
+export OPENAI_MODEL=gpt-4o
+export XAI_MODEL=grok-4.20-reasoning
+export OLLAMA_FAST_MODEL=llama3:latest
+```
+
+## Routing Behavior
+
+- Sensitive prompts are forced to Ollama.
+- Short prompts use the fast local Ollama model.
+- Coding and deep reasoning prompts prefer Anthropic when configured.
+- Current or public-context prompts prefer xAI when configured.
+- General and creative prompts prefer OpenAI when configured.
+- If a preferred cloud backend is unavailable, routing falls back to local Ollama.
+
+The router shows the chosen model and route reason in the conversation.
 
 ## Commands
 
-| Command     | Action                        |
-|-------------|-------------------------------|
-| `/quit`     | Exit the chat                 |
-| `/clear`    | Reset conversation history    |
-| `/models`   | List available Ollama models  |
-| `/backends` | Show all registered backends  |
+Type these into the prompt box and press Enter:
 
-## Project Structure
-
-```
-main.py     — Rich TUI chat loop
-router.py   — Model routing (Ollama live, others stubbed)
+```text
+/clear
+/models
+/backends
 ```
 
-## Roadmap
+- `/clear` clears the visible conversation. It is blocked while a model is streaming.
+- `/models` lists known models, strengths, and setup notes.
+- `/backends` lists backend readiness.
 
-- [ ] Connect Claude API backend
-- [ ] Connect GPT-4o backend
-- [ ] Connect Grok backend
-- [ ] Add small fast local model option
-- [ ] Backend switching mid-conversation
-- [ ] System prompt configuration
+Press `?` with an empty prompt to open the help screen. Press `Esc` or `?` to close it.
+
+## Keyboard
+
+- `Enter`: send prompt or command
+- `Ctrl-U`: clear current input
+- `Esc`: quit from the main screen
+- `Ctrl-C`: quit
+- `?`: open help when the prompt is empty
+- `Up/Down`: scroll chat history one line at a time
+- `PageUp/PageDown`: scroll chat history by half a screen
+- `Home/End`: jump to top/bottom of chat history
+
+## Verification
+
+```sh
+cargo fmt --check
+cargo clippy --all-targets -- -D warnings
+cargo test
+```
+
+Live provider smoke tests are ignored by default because they require local services or paid API keys.

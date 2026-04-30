@@ -1,14 +1,36 @@
+use std::{fmt::Write as _, path::PathBuf};
+
+use crate::history;
 use crate::llm::{ConversationTurn, LanguageModel, Provider, RouteDecision};
 use crate::router::{ModelRouter, Router};
+use crate::rules::{RulesState, RulesTarget};
 
 /// Maximum completed exchanges kept in memory and shown in the TUI.
-const MAX_STORED_TURNS: usize = 12;
+const MAX_STORED_TURNS: usize = 200;
 
 /// Maximum completed exchanges sent back to the next model request.
 const MAX_CONTEXT_TURNS: usize = 6;
 
 /// Lightweight ASCII spinner used while the model is active.
 const SPINNER_FRAMES: &[&str] = &["-", "\\", "|", "/"];
+
+/// Slash commands offered by the autocomplete popup, paired with a short hint.
+///
+/// The list is shown in this exact order, so keep it sorted alphabetically for
+/// a predictable popup. Aliases (`/model` and `/models`, `/quit` and `/exit`)
+/// are listed individually so users can complete whichever feels natural.
+const SLASH_COMMANDS: &[(&str, &str)] = &[
+    ("/backend", "List backend readiness"),
+    ("/backends", "List backend readiness"),
+    ("/clear", "Clear visible conversation"),
+    ("/exit", "Quit the app"),
+    ("/help", "Open help overlay"),
+    ("/history", "Show, save, or email history"),
+    ("/model", "Pick a model to pin"),
+    ("/models", "Pick a model to pin"),
+    ("/quit", "Quit the app"),
+    ("/rules", "Edit or toggle rules"),
+];
 
 /// One prompt-and-answer exchange shown in the TUI history.
 ///
@@ -52,6 +74,19 @@ pub struct PendingRequest {
 
     /// Bounded previous conversation included with this request.
     pub context: Vec<ConversationTurn>,
+}
+
+/// External work that must happen outside the TUI raw-mode loop.
+#[derive(Clone, Debug)]
+pub enum ExternalAction {
+    /// Open a rules file in nano, then reload rules when nano exits.
+    EditRules {
+        /// Which rules file is being edited.
+        target: RulesTarget,
+
+        /// File path to open.
+        path: PathBuf,
+    },
 }
 
 /// Incremental result sent back from an async model task to the TUI loop.
@@ -105,11 +140,50 @@ pub struct App {
     /// How many lines the user has scrolled up from the bottom of the chat
     /// history. Zero means pinned to the newest content.
     pub scroll_offset: usize,
+
+    /// Loaded global and project rules.
+    rules: RulesState,
+
+    /// Pending external editor action requested by a slash command.
+    pending_external_action: Option<ExternalAction>,
+
+    /// Index of the currently highlighted item in the slash-command popup.
+    ///
+    /// Only meaningful while the popup is actually visible; otherwise the
+    /// value is unused. Readers go through `suggestion_index()` so a stale
+    /// index gets clamped to the live match list automatically.
+    suggestion_index: usize,
+
+    /// True after the user dismisses the popup (for example with Esc) until
+    /// the input changes again. Without this flag, Esc would have no way to
+    /// hide the popup while the input still starts with a slash.
+    suggestions_dismissed: bool,
+
+    /// True while the interactive `/models` picker overlay is visible.
+    ///
+    /// The picker lets the user pin a specific model so the router stops
+    /// choosing per prompt. Esc closes the picker; Enter pins the highlight.
+    pub show_models_picker: bool,
+
+    /// Index of the currently highlighted entry in the `/models` picker.
+    ///
+    /// Index 0 is always the synthetic "Auto" entry that clears the pin and
+    /// hands routing back to `ModelRouter`. Indices 1.. correspond, in order,
+    /// to the slice returned by `pickable_models`.
+    models_picker_index: usize,
+
+    /// Optional override that forces every new prompt to use one specific
+    /// model regardless of what the rule-based router would otherwise pick.
+    ///
+    /// Cleared by selecting "Auto" inside the `/models` picker.
+    pinned_model: Option<LanguageModel>,
 }
 
 impl App {
     /// Build a fresh app with the default router.
     pub fn new() -> Self {
+        let rules = RulesState::load();
+
         Self {
             router: ModelRouter::new(),
             input: String::new(),
@@ -121,6 +195,13 @@ impl App {
             activity_tick: 0,
             show_help: false,
             scroll_offset: 0,
+            rules,
+            pending_external_action: None,
+            suggestion_index: 0,
+            suggestions_dismissed: false,
+            show_models_picker: false,
+            models_picker_index: 0,
+            pinned_model: None,
         }
     }
 
@@ -130,19 +211,125 @@ impl App {
     }
 
     /// Add one typed character to the input buffer.
+    ///
+    /// Typing always restarts the suggestion popup so filtering feels
+    /// responsive: any new keystroke resets the highlight to the first match
+    /// and clears a previous Esc dismissal.
     pub fn push_input_char(&mut self, character: char) {
         self.input.push(character);
+        self.suggestion_index = 0;
+        self.suggestions_dismissed = false;
     }
 
     /// Remove the most recent typed character.
     pub fn backspace(&mut self) {
         self.input.pop();
+        // Editing the input revives the popup if it was previously dismissed,
+        // and resets the highlight so the user does not land on a stale row.
+        self.suggestion_index = 0;
+        self.suggestions_dismissed = false;
     }
 
     /// Clear the current input without submitting it.
     pub fn clear_input(&mut self) {
         self.input.clear();
         self.status = "Input cleared.".to_string();
+        self.suggestion_index = 0;
+        self.suggestions_dismissed = false;
+    }
+
+    /// Slash-command suggestions that match the current input.
+    ///
+    /// Returns an empty list when the popup should not be shown. The popup is
+    /// hidden when:
+    /// - the input does not start with `/`,
+    /// - the input already contains whitespace (the user has moved on to
+    ///   typing a subcommand or argument),
+    /// - the user dismissed the popup with Esc since the last edit, or
+    /// - nothing in the command list matches the current prefix.
+    pub fn command_suggestions(&self) -> Vec<(&'static str, &'static str)> {
+        if self.suggestions_dismissed {
+            return Vec::new();
+        }
+        if !self.input.starts_with('/') {
+            return Vec::new();
+        }
+        if self.input.chars().any(char::is_whitespace) {
+            return Vec::new();
+        }
+
+        SLASH_COMMANDS
+            .iter()
+            .copied()
+            .filter(|(command, _)| command.starts_with(&self.input))
+            .collect()
+    }
+
+    /// Currently highlighted suggestion index, clamped to the live match list.
+    ///
+    /// Going through this method keeps callers from worrying about stale
+    /// indices: if the match list shrinks because the user typed more
+    /// characters, the highlight automatically snaps to the last valid row.
+    pub fn suggestion_index(&self) -> usize {
+        let suggestions = self.command_suggestions();
+        if suggestions.is_empty() {
+            0
+        } else {
+            self.suggestion_index.min(suggestions.len() - 1)
+        }
+    }
+
+    /// Move the popup highlight to the previous item, wrapping to the bottom.
+    pub fn select_previous_suggestion(&mut self) {
+        let suggestions = self.command_suggestions();
+        if suggestions.is_empty() {
+            return;
+        }
+        let current = self.suggestion_index.min(suggestions.len() - 1);
+        self.suggestion_index = if current == 0 {
+            suggestions.len() - 1
+        } else {
+            current - 1
+        };
+    }
+
+    /// Move the popup highlight to the next item, wrapping to the top.
+    pub fn select_next_suggestion(&mut self) {
+        let suggestions = self.command_suggestions();
+        if suggestions.is_empty() {
+            return;
+        }
+        let current = self.suggestion_index.min(suggestions.len() - 1);
+        self.suggestion_index = (current + 1) % suggestions.len();
+    }
+
+    /// Replace the input with the highlighted suggestion plus a trailing space.
+    ///
+    /// The trailing space lets the user type subcommands like `/rules show`
+    /// without having to reach for the spacebar, and it also hides the popup
+    /// naturally because `command_suggestions` filters on whitespace.
+    /// Returns `true` when a suggestion was actually applied.
+    pub fn accept_suggestion(&mut self) -> bool {
+        let suggestions = self.command_suggestions();
+        if suggestions.is_empty() {
+            return false;
+        }
+        let index = self.suggestion_index.min(suggestions.len() - 1);
+        let (selected, _hint) = suggestions[index];
+
+        self.input.clear();
+        self.input.push_str(selected);
+        self.input.push(' ');
+        self.suggestion_index = 0;
+        // The trailing space already hides the popup, but setting this flag
+        // keeps things consistent with explicit dismissal.
+        self.suggestions_dismissed = true;
+        true
+    }
+
+    /// Hide the suggestion popup until the input is edited again.
+    pub fn dismiss_suggestions(&mut self) {
+        self.suggestions_dismissed = true;
     }
 
     /// Move the chat history view upward by the given number of lines.
@@ -171,7 +358,7 @@ impl App {
     pub fn toggle_help(&mut self) {
         self.show_help = !self.show_help;
         self.status = if self.show_help {
-            "Help is open. Press Esc or ? to close it.".to_string()
+            "Help is open. Press q, Esc, ?, or Ctrl-C to close it.".to_string()
         } else {
             "Help closed.".to_string()
         };
@@ -186,6 +373,129 @@ impl App {
     /// Mark the app as ready to close.
     pub fn quit(&mut self) {
         self.should_quit = true;
+    }
+
+    /// All models the picker is allowed to offer for pinning.
+    ///
+    /// Disabled cloud models are filtered out because pinning to one would
+    /// just produce request failures at send time (no API key, etc.).
+    /// `/backends` already exists for inspecting unconfigured backends.
+    pub fn pickable_models(&self) -> Vec<&LanguageModel> {
+        self.router
+            .models()
+            .iter()
+            .filter(|model| model.enabled)
+            .collect()
+    }
+
+    /// Total number of rows shown by the picker, including the leading "Auto"
+    /// entry. Always at least 1.
+    pub fn models_picker_total(&self) -> usize {
+        // The +1 is the synthetic "Auto" entry; see `show_models_picker` docs.
+        self.pickable_models().len() + 1
+    }
+
+    /// Currently highlighted picker row, clamped to the live entry list.
+    ///
+    /// Going through this method protects callers from a stale index in the
+    /// rare case the underlying model list shrinks while the picker is open.
+    pub fn models_picker_index(&self) -> usize {
+        let total = self.models_picker_total();
+        if total == 0 {
+            0
+        } else {
+            self.models_picker_index.min(total - 1)
+        }
+    }
+
+    /// True when the given model is the one currently pinned, used by the UI
+    /// to mark the active row with a small indicator.
+    pub fn is_pinned(&self, model: &LanguageModel) -> bool {
+        match &self.pinned_model {
+            Some(pinned) => pinned.provider == model.provider && pinned.name == model.name,
+            None => false,
+        }
+    }
+
+    /// Open the interactive `/models` picker overlay.
+    ///
+    /// The highlight starts on the row that matches the existing pin (so
+    /// reopening the picker shows the user what is currently active), or on
+    /// the "Auto" row when nothing is pinned.
+    pub fn open_models_picker(&mut self) {
+        self.show_models_picker = true;
+        // Slash-command popup must not stay visible behind the modal picker.
+        self.suggestions_dismissed = true;
+        // Pre-select the row representing the current state so the user can
+        // confirm with Enter or quickly nudge to a different choice.
+        self.models_picker_index = match &self.pinned_model {
+            None => 0,
+            Some(pinned) => self
+                .pickable_models()
+                .iter()
+                .position(|model| model.provider == pinned.provider && model.name == pinned.name)
+                .map(|i| i + 1) // +1 because index 0 is "Auto".
+                .unwrap_or(0),
+        };
+        self.status =
+            "Pick a model. Up/Down to navigate, Enter to select, Esc to cancel.".to_string();
+    }
+
+    /// Close the picker without applying any change.
+    pub fn close_models_picker(&mut self) {
+        if !self.show_models_picker {
+            return;
+        }
+        self.show_models_picker = false;
+        self.status = "Model picker cancelled.".to_string();
+    }
+
+    /// Move the picker highlight up by one row, wrapping at the top.
+    pub fn select_previous_model(&mut self) {
+        let total = self.models_picker_total();
+        if total == 0 {
+            return;
+        }
+        let current = self.models_picker_index.min(total - 1);
+        self.models_picker_index = if current == 0 { total - 1 } else { current - 1 };
+    }
+
+    /// Move the picker highlight down by one row, wrapping at the bottom.
+    pub fn select_next_model(&mut self) {
+        let total = self.models_picker_total();
+        if total == 0 {
+            return;
+        }
+        let current = self.models_picker_index.min(total - 1);
+        self.models_picker_index = (current + 1) % total;
+    }
+
+    /// Apply the highlighted picker row.
+    ///
+    /// Selecting "Auto" clears the pin and hands routing back to the rule-
+    /// based `ModelRouter`. Selecting a specific model pins it for every
+    /// future prompt until the user picks something else.
+    pub fn accept_model_selection(&mut self) {
+        let total = self.models_picker_total();
+        if total == 0 {
+            return;
+        }
+        let index = self.models_picker_index.min(total - 1);
+
+        if index == 0 {
+            self.pinned_model = None;
+            self.status = "Routing reset to Auto. Router will pick per prompt.".to_string();
+        } else {
+            // Clone the chosen model out of the borrowed list before we touch
+            // self.pinned_model — Rust will not allow us to hold the borrow
+            // and the mutation at the same time.
+            let chosen = self.pickable_models()[index - 1].clone();
+            let label = chosen.display_label();
+            self.pinned_model = Some(chosen);
+            self.status = format!("Pinned to {label}. New prompts will skip the router.");
+        }
+
+        self.show_models_picker = false;
     }
 
     /// Try to submit the current prompt.
@@ -212,10 +522,28 @@ impl App {
             return None;
         }
 
-        let route = self.router.route(&prompt);
+        // A pinned model bypasses the rule-based router entirely. The route
+        // reason still gets a human-readable explanation so the conversation
+        // panel makes the override visible.
+        let route = if let Some(pinned) = &self.pinned_model {
+            RouteDecision {
+                model: pinned.clone(),
+                reason: format!(
+                    "Pinned to {} via /models picker. Router skipped.",
+                    pinned.display_label()
+                ),
+            }
+        } else {
+            self.router.route(&prompt)
+        };
         let context = self.conversation_context();
+        let prompt_for_model = self.rules.prompt_with_rules(&prompt);
         let model_name = route.model.display_label();
-        let route_reason = route.reason.clone();
+        let route_reason = if let Some(rules_summary) = self.rules.application_summary() {
+            format!("{} {}", route.reason, rules_summary)
+        } else {
+            route.reason.clone()
+        };
 
         self.input.clear();
         self.waiting_for_model = true;
@@ -237,7 +565,7 @@ impl App {
         self.trim_history();
 
         Some(PendingRequest {
-            prompt,
+            prompt: prompt_for_model,
             route,
             context,
         })
@@ -296,9 +624,17 @@ impl App {
     }
 
     /// Return the model currently in use, or the most recent model if idle.
+    ///
+    /// When the user has pinned a model through `/models`, the label is
+    /// suffixed with `(pinned)` so the status panel makes the override
+    /// obvious at a glance.
     pub fn current_model_label(&self) -> String {
         if let Some(model_name) = &self.active_model_name {
             return model_name.clone();
+        }
+
+        if let Some(pinned) = &self.pinned_model {
+            return format!("{} (pinned)", pinned.display_label());
         }
 
         self.history
@@ -307,6 +643,53 @@ impl App {
             .find(|message| message.include_in_context)
             .map(|message| message.model_name.clone())
             .unwrap_or_else(|| "none".to_string())
+    }
+
+    /// Current rules status for the status panel.
+    pub fn rules_status_line(&self) -> String {
+        self.rules.status_line()
+    }
+
+    /// Take the next external action requested by a local command.
+    pub fn take_external_action(&mut self) -> Option<ExternalAction> {
+        self.pending_external_action.take()
+    }
+
+    /// Update app state after nano exits from a `/rules` edit.
+    pub fn complete_rules_edit(
+        &mut self,
+        target: RulesTarget,
+        path: PathBuf,
+        editor_result: Result<(), String>,
+    ) {
+        match editor_result {
+            Ok(()) => {
+                let rules_were_enabled = self.rules.enabled();
+                self.rules = RulesState::load().with_enabled(rules_were_enabled);
+                self.append_local_message(
+                    "/rules",
+                    format!(
+                        "Reloaded {} from {}.\nRules: {}",
+                        target.label(),
+                        path.display(),
+                        self.rules.status_line()
+                    ),
+                );
+                self.status = format!("Reloaded {}.", target.label());
+            }
+            Err(error) => {
+                self.append_local_message(
+                    "/rules",
+                    format!(
+                        "Could not edit {} at {}.\n{}",
+                        target.label(),
+                        path.display(),
+                        error
+                    ),
+                );
+                self.status = format!("Failed to edit {}.", target.label());
+            }
+        }
     }
 
     /// Return the bounded context to include with the next request.
@@ -350,28 +733,37 @@ impl App {
 
     /// Execute a slash command entered in the prompt box.
     fn handle_command(&mut self, input: &str) {
-        let command = input.split_whitespace().next().unwrap_or_default();
+        let command = input
+            .split_whitespace()
+            .next()
+            .unwrap_or_default()
+            .to_ascii_lowercase();
 
-        match command {
+        match command.as_str() {
             "/clear" => self.clear_conversation_command(),
-            "/models" => {
-                let report = self.models_report();
-                self.append_local_message("/models", report);
-                self.status = "Listed configured models.".to_string();
+            "/model" | "/models" => {
+                // Replaces the old text dump with an interactive picker that
+                // reuses the slash-command popup style. The text report is
+                // still reachable via `/backends` for the broader summary.
+                self.open_models_picker();
             }
-            "/backends" => {
+            "/backend" | "/backends" => {
                 let report = self.backends_report();
-                self.append_local_message("/backends", report);
+                self.append_local_message(input, report);
                 self.status = "Listed backend status.".to_string();
             }
+            "/rules" => self.handle_rules_command(input),
+            "/history" => self.handle_history_command(input),
             "/help" => {
                 self.show_help = true;
-                self.status = "Help is open. Press Esc or ? to close it.".to_string();
+                self.status = "Help is open. Press q, Esc, ?, or Ctrl-C to close it.".to_string();
             }
+            "/quit" | "/exit" | "/q" => self.quit(),
             _ => {
                 self.append_local_message(
                     input,
-                    "Unknown command. Available commands: /clear, /models, /backends.".to_string(),
+                    "Unknown command. Available commands: /clear, /model, /backend, /rules, /history, /help, /quit."
+                        .to_string(),
                 );
                 self.status = "Unknown command.".to_string();
             }
@@ -404,27 +796,212 @@ impl App {
         self.trim_history();
     }
 
-    /// Build a human-readable list of configured models.
-    fn models_report(&self) -> String {
-        self.models()
-            .iter()
-            .map(|model| {
-                let status = if model.enabled { "enabled" } else { "disabled" };
-                let setup = model
-                    .disabled_reason
-                    .as_deref()
-                    .unwrap_or("ready for routing");
+    /// Handle the rules command family.
+    fn handle_rules_command(&mut self, input: &str) {
+        let mut args = input.split_whitespace().skip(1);
+        let subcommand = args.next().map(|arg| arg.to_ascii_lowercase());
 
-                format!(
-                    "{} [{}]\n  strengths: {}\n  setup: {}",
-                    model.display_label(),
-                    status,
-                    model.strengths.join(", "),
-                    setup
-                )
-            })
-            .collect::<Vec<_>>()
-            .join("\n\n")
+        match subcommand.as_deref() {
+            None => {
+                let target = if self.rules.project_root().is_some() {
+                    RulesTarget::Project
+                } else {
+                    RulesTarget::Global
+                };
+                self.queue_rules_edit(input, target);
+            }
+            Some("global") => self.queue_rules_edit(input, RulesTarget::Global),
+            Some("project") => self.queue_rules_edit(input, RulesTarget::Project),
+            Some("show") | Some("status") => {
+                self.append_local_message(input, self.rules.report());
+                self.status = "Displayed rules status.".to_string();
+            }
+            Some("off") | Some("disable") => {
+                self.rules.set_enabled(false);
+                self.append_local_message(input, "All rules are off for new prompts.".to_string());
+                self.status = "Rules turned off.".to_string();
+            }
+            Some("on") | Some("enable") => {
+                self.rules = RulesState::load().with_enabled(true);
+                self.append_local_message(input, self.rules.report());
+                self.status = "Rules turned on and reloaded.".to_string();
+            }
+            Some("toggle") => {
+                let enabled = !self.rules.enabled();
+                if enabled {
+                    self.rules = RulesState::load().with_enabled(true);
+                } else {
+                    self.rules.set_enabled(false);
+                }
+                self.append_local_message(
+                    input,
+                    format!(
+                        "Rules are now {}.\nRules: {}",
+                        if enabled { "on" } else { "off" },
+                        self.rules.status_line()
+                    ),
+                );
+                self.status = if enabled {
+                    "Rules turned on.".to_string()
+                } else {
+                    "Rules turned off.".to_string()
+                };
+            }
+            _ => {
+                self.append_local_message(
+                    input,
+                    "Usage: /rules [global|project|show|off|on|toggle]".to_string(),
+                );
+                self.status = "Unknown /rules command.".to_string();
+            }
+        }
+    }
+
+    /// Queue a nano edit for a rules file.
+    fn queue_rules_edit(&mut self, input: &str, target: RulesTarget) {
+        if self.waiting_for_model {
+            self.append_local_message(
+                input,
+                "Wait for the current model response to finish before editing rules.".to_string(),
+            );
+            self.status = "Cannot edit rules while a model is answering.".to_string();
+            return;
+        }
+
+        match self.rules.prepare_edit(target) {
+            Ok(path) => {
+                self.pending_external_action = Some(ExternalAction::EditRules {
+                    target,
+                    path: path.clone(),
+                });
+                self.status = format!("Opening nano for {} at {}.", target.label(), path.display());
+            }
+            Err(error) => {
+                self.append_local_message(
+                    input,
+                    format!("Could not prepare {}: {error}", target.label()),
+                );
+                self.status = format!("Failed to prepare {}.", target.label());
+            }
+        }
+    }
+
+    /// Handle `/history` display, save, and email commands.
+    fn handle_history_command(&mut self, input: &str) {
+        let mut args = input.split_whitespace().skip(1);
+        let subcommand = args.next().map(|arg| arg.to_ascii_lowercase());
+
+        match subcommand.as_deref() {
+            None | Some("show") => {
+                self.append_local_message(input, self.history_report());
+                self.status = "Displayed history.".to_string();
+            }
+            Some("save") => {
+                let requested_path = args.next();
+                let report = self.history_report();
+
+                match history::save_report(&report, requested_path) {
+                    Ok(path) => {
+                        self.append_local_message(
+                            input,
+                            format!("Saved history to {}.", path.display()),
+                        );
+                        self.status = "Saved history.".to_string();
+                    }
+                    Err(error) => {
+                        self.append_local_message(
+                            input,
+                            format!("Could not save history: {error}"),
+                        );
+                        self.status = "Failed to save history.".to_string();
+                    }
+                }
+            }
+            Some("email") | Some("mail") => {
+                let subject = args.collect::<Vec<_>>().join(" ");
+                let subject = if subject.trim().is_empty() {
+                    "ollama-me history"
+                } else {
+                    subject.trim()
+                };
+                let report = self.history_report();
+
+                match history::email_report(&report, subject) {
+                    Ok(()) => {
+                        self.append_local_message(
+                            input,
+                            format!("Emailed history with subject: {subject}"),
+                        );
+                        self.status = "Emailed history.".to_string();
+                    }
+                    Err(error) => {
+                        self.append_local_message(
+                            input,
+                            format!("Could not email history through send-report: {error}"),
+                        );
+                        self.status = "Failed to email history.".to_string();
+                    }
+                }
+            }
+            _ => {
+                self.append_local_message(
+                    input,
+                    "Usage: /history [show|save [path]|email [subject]]".to_string(),
+                );
+                self.status = "Unknown /history command.".to_string();
+            }
+        }
+    }
+
+    /// Build a plain-text transcript for `/history`.
+    fn history_report(&self) -> String {
+        let conversation = self
+            .history
+            .iter()
+            .filter(|message| message.include_in_context)
+            .collect::<Vec<_>>();
+
+        let mut report = String::new();
+        let _ = writeln!(report, "ollama-me history");
+        let _ = writeln!(report, "Rules: {}", self.rules.status_line());
+
+        if let Some(project_root) = self.rules.project_root() {
+            let _ = writeln!(report, "Project: {}", project_root.display());
+        }
+
+        let _ = writeln!(report);
+
+        if conversation.is_empty() {
+            report.push_str("No model conversation history yet.\n");
+            return report;
+        }
+
+        for (index, message) in conversation.iter().enumerate() {
+            let _ = writeln!(report, "## Turn {}", index + 1);
+            let _ = writeln!(report, "Model: {}", message.model_name);
+            let _ = writeln!(report, "Route: {}", message.route_reason);
+
+            if message.failed {
+                let _ = writeln!(report, "Status: failed");
+            } else if message.in_progress {
+                let _ = writeln!(report, "Status: streaming");
+            }
+
+            let _ = writeln!(report);
+            let _ = writeln!(report, "User:");
+            let _ = writeln!(report, "{}", message.prompt);
+            let _ = writeln!(report);
+            let _ = writeln!(report, "Assistant:");
+            let answer = if message.answer.trim().is_empty() {
+                "(no answer yet)"
+            } else {
+                &message.answer
+            };
+            let _ = writeln!(report, "{answer}");
+            let _ = writeln!(report);
+        }
+
+        report
     }
 
     /// Build a human-readable backend readiness summary.
@@ -508,7 +1085,7 @@ mod tests {
     #[test]
     fn trim_history_keeps_recent_turns_only() {
         let mut app = App::new();
-        for number in 0..15 {
+        for number in 0..(MAX_STORED_TURNS + 3) {
             app.history.push(completed_message(number));
         }
 
@@ -521,7 +1098,7 @@ mod tests {
         );
         assert_eq!(
             app.history.last().expect("last stored turn").prompt,
-            "prompt 14"
+            format!("prompt {}", MAX_STORED_TURNS + 2)
         );
     }
 
@@ -561,28 +1138,271 @@ mod tests {
     }
 
     #[test]
-    fn models_command_adds_local_message_not_context() {
+    fn models_command_opens_picker_without_model_request() {
         let mut app = App::new();
         app.input = "/models".to_string();
 
         let request = app.submit_prompt();
 
+        // The picker is an interactive overlay, not a text dump, so no message
+        // should land in history and no model request should be queued.
+        assert!(request.is_none());
+        assert!(app.show_models_picker);
+        assert!(app.history.is_empty());
+    }
+
+    #[test]
+    fn singular_model_command_opens_picker_without_model_request() {
+        let mut app = App::new();
+        app.input = "/model".to_string();
+
+        let request = app.submit_prompt();
+
+        assert!(request.is_none());
+        assert!(app.show_models_picker);
+        assert!(app.history.is_empty());
+    }
+
+    #[test]
+    fn models_picker_navigates_and_pins_selection() {
+        let mut app = App::new();
+        app.open_models_picker();
+        // Snapshot the first real model before mutation; index 0 is "Auto".
+        let expected = app.pickable_models()[0].clone();
+        app.select_next_model();
+        app.accept_model_selection();
+
+        assert!(!app.show_models_picker);
+        assert!(app.is_pinned(&expected));
+        assert!(app.current_model_label().contains("(pinned)"));
+        assert!(
+            app.current_model_label()
+                .contains(&expected.display_label())
+        );
+    }
+
+    #[test]
+    fn models_picker_auto_entry_clears_pin() {
+        let mut app = App::new();
+        // Pin first…
+        app.open_models_picker();
+        let first = app.pickable_models()[0].clone();
+        app.select_next_model();
+        app.accept_model_selection();
+        assert!(app.is_pinned(&first));
+
+        // …then reopen and pick "Auto" (row 0) to clear the pin.
+        app.open_models_picker();
+        app.models_picker_index = 0;
+        app.accept_model_selection();
+
+        assert!(!app.is_pinned(&first));
+        assert!(!app.current_model_label().contains("(pinned)"));
+    }
+
+    #[test]
+    fn pinned_model_overrides_router_for_new_prompts() {
+        let mut app = App::new();
+        // Pick the first non-Auto entry so we know a pin is in effect.
+        app.open_models_picker();
+        let pinned = app.pickable_models()[0].clone();
+        app.select_next_model();
+        app.accept_model_selection();
+
+        app.input = "what is the latest news today".to_string();
+        let request = app.submit_prompt().expect("submitted request");
+
+        // Without the pin, this prompt would be routed as "current context"
+        // and likely land on Grok if configured. With the pin, the chosen
+        // model must match what the user pinned.
+        assert_eq!(request.route.model.display_label(), pinned.display_label());
+        assert!(request.route.reason.contains("Pinned"));
+    }
+
+    #[test]
+    fn esc_on_picker_cancels_without_changing_pin() {
+        let mut app = App::new();
+        app.open_models_picker();
+        let candidate = app.pickable_models()[0].clone();
+        app.select_next_model();
+        app.close_models_picker();
+
+        assert!(!app.show_models_picker);
+        assert!(!app.is_pinned(&candidate));
+    }
+
+    #[test]
+    fn select_next_model_wraps_around_picker() {
+        let mut app = App::new();
+        app.open_models_picker();
+        let total = app.models_picker_total();
+        // Step through every row exactly once and confirm we land back at
+        // the start; this proves the wrap-around behavior.
+        for _ in 0..total {
+            app.select_next_model();
+        }
+        assert_eq!(app.models_picker_index(), 0);
+    }
+
+    #[test]
+    fn singular_backend_command_adds_local_message_without_model_request() {
+        let mut app = App::new();
+        app.input = "/backend".to_string();
+
+        let request = app.submit_prompt();
+
         assert!(request.is_none());
         let message = app.history.last().expect("local command message");
+        assert_eq!(message.prompt, "/backend");
         assert_eq!(message.model_name, "ollama-me");
         assert!(!message.include_in_context);
-        assert!(message.answer.contains("Ollama llama3"));
+        assert!(message.answer.contains("Ollama"));
+    }
+
+    #[test]
+    fn help_command_opens_help_without_model_request() {
+        let mut app = App::new();
+        app.input = "/help".to_string();
+
+        let request = app.submit_prompt();
+
+        assert!(request.is_none());
+        assert!(app.show_help);
+        assert!(app.history.is_empty());
+    }
+
+    #[test]
+    fn quit_command_exits_without_model_request() {
+        let mut app = App::new();
+        app.input = "/quit".to_string();
+
+        let request = app.submit_prompt();
+
+        assert!(request.is_none());
+        assert!(app.should_quit);
+        assert!(app.history.is_empty());
     }
 
     #[test]
     fn command_messages_are_not_sent_as_context() {
         let mut app = App::new();
         app.history.push(completed_message(1));
-        app.append_local_message("/models", "local output".to_string());
+        // Use any local-message-producing command; /models is now interactive
+        // so we exercise the same path through `append_local_message` directly.
+        app.append_local_message("/help", "local output".to_string());
 
         let context = app.conversation_context();
 
         assert_eq!(context.len(), 1);
         assert_eq!(context[0].user, "prompt 1");
+    }
+
+    #[test]
+    fn command_suggestions_empty_for_normal_input() {
+        let mut app = App::new();
+        app.input = "hello".to_string();
+        assert!(app.command_suggestions().is_empty());
+    }
+
+    #[test]
+    fn command_suggestions_show_all_commands_for_slash_alone() {
+        let mut app = App::new();
+        app.input = "/".to_string();
+        let suggestions = app.command_suggestions();
+        assert_eq!(suggestions.len(), SLASH_COMMANDS.len());
+    }
+
+    #[test]
+    fn command_suggestions_filter_by_prefix() {
+        let mut app = App::new();
+        app.input = "/m".to_string();
+        let names: Vec<&str> = app
+            .command_suggestions()
+            .into_iter()
+            .map(|(command, _)| command)
+            .collect();
+        assert_eq!(names, vec!["/model", "/models"]);
+    }
+
+    #[test]
+    fn command_suggestions_hidden_after_whitespace() {
+        let mut app = App::new();
+        app.input = "/rules ".to_string();
+        assert!(app.command_suggestions().is_empty());
+    }
+
+    #[test]
+    fn accept_suggestion_replaces_input_and_appends_space() {
+        let mut app = App::new();
+        app.input = "/h".to_string();
+        // /h matches /help and /history; first match is /help (alphabetical).
+        let accepted = app.accept_suggestion();
+        assert!(accepted);
+        assert_eq!(app.input, "/help ");
+        // Trailing space hides the popup naturally.
+        assert!(app.command_suggestions().is_empty());
+    }
+
+    #[test]
+    fn select_next_wraps_around_match_list() {
+        let mut app = App::new();
+        app.input = "/m".to_string();
+        // /model is at index 0, /models at index 1.
+        app.select_next_suggestion();
+        assert_eq!(app.suggestion_index(), 1);
+        app.select_next_suggestion();
+        assert_eq!(app.suggestion_index(), 0);
+    }
+
+    #[test]
+    fn select_previous_wraps_to_end() {
+        let mut app = App::new();
+        app.input = "/m".to_string();
+        app.select_previous_suggestion();
+        assert_eq!(app.suggestion_index(), 1);
+    }
+
+    #[test]
+    fn select_next_is_noop_without_suggestions() {
+        let mut app = App::new();
+        app.input = "hello".to_string();
+        app.select_next_suggestion();
+        assert_eq!(app.suggestion_index(), 0);
+    }
+
+    #[test]
+    fn dismiss_suggestions_hides_popup_until_input_changes() {
+        let mut app = App::new();
+        app.input = "/".to_string();
+        assert!(!app.command_suggestions().is_empty());
+
+        app.dismiss_suggestions();
+        assert!(app.command_suggestions().is_empty());
+
+        app.push_input_char('h');
+        assert!(!app.command_suggestions().is_empty());
+    }
+
+    #[test]
+    fn suggestion_index_clamps_when_match_list_shrinks() {
+        let mut app = App::new();
+        app.input = "/m".to_string();
+        // Set raw index to 1 (= /models).
+        app.select_next_suggestion();
+        assert_eq!(app.suggestion_index(), 1);
+
+        // Mutate the input directly so the bookkeeping in `push_input_char`
+        // doesn't reset the index. This simulates a stale index and proves the
+        // clamp inside `suggestion_index` works.
+        app.input.push('o');
+        let suggestions = app.command_suggestions();
+        assert_eq!(suggestions.len(), 2);
+        app.input = "/model".to_string();
+        let suggestions = app.command_suggestions();
+        assert_eq!(suggestions.len(), 2);
+        app.input = "/models".to_string();
+        let suggestions = app.command_suggestions();
+        assert_eq!(suggestions.len(), 1);
+        assert_eq!(app.suggestion_index(), 0);
     }
 }

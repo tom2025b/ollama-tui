@@ -69,21 +69,27 @@ Type these into the prompt box and press Enter:
 /clear
 /models
 /backends
+/rules [global|project|show|off|on|toggle]
+/history [show|save [path]|email [subject]]
 ```
 
 - `/clear` clears the visible conversation. It is blocked while a model is streaming.
-- `/models` lists known models, strengths, and setup notes.
+- `/models` opens an interactive picker. Use Up/Down to navigate, Enter to pin a model (every new prompt skips the router and goes to that model), and Esc to cancel. Pick `Auto` to hand routing back to the router.
 - `/backends` lists backend readiness.
+- `/rules` opens the current project rules in `nano` when a project is detected, otherwise global rules. Global rules live at `~/.config/ollama-me/rules.md`; project rules live at `<project-root>/.ollama-me/rules.md`.
+- `/rules off`, `/rules on`, and `/rules toggle` control whether rules are applied to new prompts.
+- `/history` shows the current session transcript. `/history save` writes a text file under `~/.local/share/ollama-me/history/`, and `/history email` pipes it through `~/bin/send-report`.
 
-Press `?` with an empty prompt to open the help screen. Press `Esc` or `?` to close it.
+Press `?` with an empty prompt to open the help screen. Press `q`, `Esc`, `?`, or `Ctrl-C` to close it.
 
 ## Keyboard
 
 - `Enter`: send prompt or command
 - `Ctrl-U`: clear current input
 - `Esc`: quit from the main screen
-- `Ctrl-C`: quit
+- `Ctrl-C`: quit from the main screen, close help from the help screen
 - `?`: open help when the prompt is empty
+- `q`: close help when the help screen is open
 - `Up/Down`: scroll chat history one line at a time
 - `PageUp/PageDown`: scroll chat history by half a screen
 - `Home/End`: jump to top/bottom of chat history

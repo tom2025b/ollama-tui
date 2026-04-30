@@ -21,7 +21,7 @@ pub fn draw(frame: &mut Frame, app: &App) {
         .constraints([
             Constraint::Length(7),
             Constraint::Min(8),
-            Constraint::Length(4),
+            Constraint::Length(5),
             Constraint::Length(3),
         ])
         .split(frame.area());
@@ -31,9 +31,193 @@ pub fn draw(frame: &mut Frame, app: &App) {
     draw_status(frame, app, page[2]);
     draw_input(frame, app, page[3]);
 
+    // The autocomplete popup is drawn after the input box so it can overlap
+    // the status panel without us having to reserve dedicated layout space.
+    let suggestions = app.command_suggestions();
+    if !suggestions.is_empty() {
+        draw_command_palette(frame, app, page[3], &suggestions);
+    }
+
+    // The /models picker uses the same anchor as the slash-command popup so
+    // the two overlays share a visual style. Drawing it last means it sits
+    // on top of any other popup in the rare case both would be visible.
+    if app.show_models_picker {
+        draw_models_picker(frame, app, page[3]);
+    }
+
     if app.show_help {
         draw_help(frame, frame.area());
     }
+}
+
+/// Draw the slash-command autocomplete popup just above the input box.
+///
+/// The popup is anchored to the input area's top edge and grows upward, so
+/// the user can see both their typed prefix and the available commands at the
+/// same time. `Clear` is rendered first so the popup is visually opaque over
+/// whatever was below it.
+fn draw_command_palette(
+    frame: &mut Frame,
+    app: &App,
+    input_area: Rect,
+    suggestions: &[(&'static str, &'static str)],
+) {
+    // Cap the popup height so a long match list cannot push off the screen.
+    const MAX_VISIBLE: usize = 8;
+
+    let visible_count = suggestions.len().min(MAX_VISIBLE);
+    let height = visible_count as u16 + 2; // top + bottom borders
+    let width = 50.min(input_area.width);
+    let x = input_area.x;
+    let y = input_area.y.saturating_sub(height);
+
+    let area = Rect {
+        x,
+        y,
+        width,
+        height,
+    };
+
+    let selected = app.suggestion_index();
+
+    // Pad each command name to the same width so the hint column lines up.
+    let command_width = suggestions
+        .iter()
+        .map(|(command, _)| command.len())
+        .max()
+        .unwrap_or(0);
+
+    let items: Vec<ListItem> = suggestions
+        .iter()
+        .take(MAX_VISIBLE)
+        .enumerate()
+        .map(|(index, (command, hint))| {
+            let highlighted = index == selected;
+            let row_style = if highlighted {
+                Style::default()
+                    .bg(Color::Cyan)
+                    .fg(Color::Black)
+                    .add_modifier(Modifier::BOLD)
+            } else {
+                Style::default()
+            };
+            let hint_style = if highlighted {
+                row_style
+            } else {
+                Style::default().fg(Color::DarkGray)
+            };
+
+            let padding = " ".repeat(command_width.saturating_sub(command.len()) + 2);
+
+            ListItem::new(Line::from(vec![
+                Span::styled(format!(" {command}"), row_style),
+                Span::styled(padding, row_style),
+                Span::styled(format!("{hint} "), hint_style),
+            ]))
+        })
+        .collect();
+
+    let popup = List::new(items).block(
+        Block::default()
+            .title("Commands - Tab/Enter accept, Esc dismiss")
+            .borders(Borders::ALL),
+    );
+
+    frame.render_widget(Clear, area);
+    frame.render_widget(popup, area);
+}
+
+/// Draw the interactive `/models` picker.
+///
+/// Anchored above the input box and grown upward, just like the slash
+/// autocomplete popup, so the two overlays feel like the same control. The
+/// first row is always the synthetic "Auto" entry that clears the pin; the
+/// remaining rows mirror `App::pickable_models` in order.
+fn draw_models_picker(frame: &mut Frame, app: &App, input_area: Rect) {
+    // Cap visible rows so a long model list cannot overflow the screen. If
+    // the highlighted row is below the cap, scroll the visible window down.
+    const MAX_VISIBLE: usize = 8;
+
+    let entries = app.pickable_models();
+    let total_rows = entries.len() + 1; // +1 for the leading "Auto" row.
+    let selected = app.models_picker_index();
+
+    let visible_count = total_rows.min(MAX_VISIBLE);
+    let scroll_start = if selected >= MAX_VISIBLE {
+        // Keep the highlight on the last visible row when the user scrolls
+        // past the cap. Simple bottom-anchored windowing — good enough for
+        // the small list sizes this app expects.
+        selected + 1 - MAX_VISIBLE
+    } else {
+        0
+    };
+
+    let height = visible_count as u16 + 2; // +2 for the popup border.
+    let width = 60.min(input_area.width);
+    let x = input_area.x;
+    let y = input_area.y.saturating_sub(height);
+    let area = Rect {
+        x,
+        y,
+        width,
+        height,
+    };
+
+    // Build the visible slice of rows. Each row is built independently so
+    // styling for the highlight is straightforward.
+    let mut items: Vec<ListItem> = Vec::with_capacity(visible_count);
+    for offset in 0..visible_count {
+        let row_index = scroll_start + offset;
+        let highlighted = row_index == selected;
+
+        let row_style = if highlighted {
+            Style::default()
+                .bg(Color::Cyan)
+                .fg(Color::Black)
+                .add_modifier(Modifier::BOLD)
+        } else {
+            Style::default()
+        };
+        let hint_style = if highlighted {
+            row_style
+        } else {
+            Style::default().fg(Color::DarkGray)
+        };
+
+        // Row 0 is the synthetic "Auto" entry; everything else maps to a
+        // model in the pickable list with a small marker for the active pin.
+        let (label, hint) = if row_index == 0 {
+            (
+                "Auto".to_string(),
+                "Let the router pick per prompt".to_string(),
+            )
+        } else {
+            let model = entries[row_index - 1];
+            // A trailing star marks the row that is currently pinned, so the
+            // user can visually confirm the active selection without reading
+            // the status panel.
+            let pin_marker = if app.is_pinned(model) { " *" } else { "" };
+            (
+                format!("{}{}", model.display_label(), pin_marker),
+                model.strengths.join(", "),
+            )
+        };
+
+        items.push(ListItem::new(Line::from(vec![
+            Span::styled(format!(" {label}"), row_style),
+            Span::styled("  ".to_string(), row_style),
+            Span::styled(format!("{hint} "), hint_style),
+        ])));
+    }
+
+    let popup = List::new(items).block(
+        Block::default()
+            .title("Models - ↑/↓ navigate, Enter pin, Esc cancel")
+            .borders(Borders::ALL),
+    );
+
+    frame.render_widget(Clear, area);
+    frame.render_widget(popup, area);
 }
 
 /// Draw the models that the router can currently use.
@@ -206,6 +390,10 @@ fn draw_status(frame: &mut Frame, app: &App, area: ratatui::layout::Rect) {
             Span::styled("Model: ", Style::default().add_modifier(Modifier::BOLD)),
             Span::raw(app.current_model_label()),
         ]),
+        Line::from(vec![
+            Span::styled("Rules: ", Style::default().add_modifier(Modifier::BOLD)),
+            Span::raw(app.rules_status_line()),
+        ]),
     ])
     .style(Style::default().fg(status_color))
     .block(Block::default().title("Status").borders(Borders::ALL));
@@ -231,7 +419,7 @@ fn draw_input(frame: &mut Frame, app: &App, area: ratatui::layout::Rect) {
 
 /// Draw the keyboard and command help overlay.
 fn draw_help(frame: &mut Frame, area: Rect) {
-    let popup = centered_rect(72, 62, area);
+    let popup = centered_rect(78, 90, area);
     let help_lines = vec![
         Line::from(vec![Span::styled(
             "ollama-me help",
@@ -240,16 +428,21 @@ fn draw_help(frame: &mut Frame, area: Rect) {
         Line::from(""),
         Line::from("Enter sends the current prompt."),
         Line::from("? opens or closes this help when the prompt is empty."),
-        Line::from("Esc closes help; from the main screen it quits."),
-        Line::from("Ctrl-C quits. Ctrl-U clears the prompt input."),
+        Line::from("Esc, q, ?, or Ctrl-C closes help."),
+        Line::from("Main screen: Esc or Ctrl-C quits. Ctrl-U clears input."),
         Line::from(""),
         Line::from("Up/Down scrolls the chat history one line at a time."),
         Line::from("PageUp/PageDown scrolls by half a screen."),
         Line::from("Home/End jumps to the top/bottom of the history."),
         Line::from(""),
         Line::from("/clear clears the visible conversation."),
-        Line::from("/models lists configured models and setup notes."),
+        Line::from("/models opens an interactive picker to pin a model."),
+        Line::from("    Up/Down navigate, Enter pins, Esc cancels."),
+        Line::from("    Pick \"Auto\" to hand routing back to the router."),
         Line::from("/backends lists backend readiness."),
+        Line::from("/rules opens project rules; /rules global edits global rules."),
+        Line::from("/rules off, /rules on, and /rules toggle control rule loading."),
+        Line::from("/history shows history; /history save and /history email export it."),
     ];
     let help = Paragraph::new(help_lines)
         .block(Block::default().title("Help").borders(Borders::ALL))

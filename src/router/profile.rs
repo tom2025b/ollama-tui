@@ -1,64 +1,9 @@
-/// Explicit user instructions that require local/private handling.
-const LOCAL_ONLY_KEYWORDS: &[&str] =
-    &["private", "privacy", "offline", "local only", "do not send"];
+mod keywords;
 
-/// Sensitive phrases that should never be sent to a cloud provider automatically.
-const SENSITIVE_PHRASES: &[&str] = &[
-    "api key",
-    "account number",
-    "bank account",
-    "client data",
-    "credit card",
-    "email address",
-    "employment contract",
-    "home address",
-    "legal contract",
-    "medical record",
-    "medical records",
-    "patient record",
-    "personal data",
-    "personal note",
-    "phone number",
-    "private key",
-    "routing number",
-    "secret key",
-    "social security",
-    "tax return",
-];
-
-/// Sensitive single-word markers. These are matched as words, not substrings.
-const SENSITIVE_WORDS: &[&str] = &[
-    "1099",
-    "attorney",
-    "banking",
-    "birthdate",
-    "contract",
-    "credential",
-    "credentials",
-    "diagnosis",
-    "diagnoses",
-    "divorce",
-    "dob",
-    "insurance",
-    "lawsuit",
-    "lawyer",
-    "medical",
-    "medication",
-    "passport",
-    "password",
-    "patient",
-    "payroll",
-    "prescription",
-    "salary",
-    "secret",
-    "ssn",
-    "tax",
-    "taxes",
-    "therapy",
-    "therapist",
-    "token",
-    "w2",
-];
+use keywords::{
+    CREATIVE_OR_GENERAL_CLOUD_KEYWORDS, CURRENT_CONTEXT_KEYWORDS, DEEP_REASONING_OR_CODE_KEYWORDS,
+    LOCAL_ONLY_KEYWORDS, SENSITIVE_PHRASES, SENSITIVE_WORDS, SIMPLE_KEYWORDS,
+};
 
 /// Simple prompt features used by the router.
 #[derive(Debug, Default)]
@@ -79,65 +24,15 @@ impl PromptProfile {
         Self {
             needs_privacy: contains_any(&prompt_lowercase, LOCAL_ONLY_KEYWORDS)
                 || contains_sensitive_keyword(&prompt_lowercase),
-            is_simple: word_count <= 20
-                || contains_any(
-                    &prompt_lowercase,
-                    &[
-                        "quick",
-                        "brief",
-                        "one line",
-                        "one-line",
-                        "short answer",
-                        "simple",
-                    ],
-                ),
-            needs_current_context: contains_any(
-                &prompt_lowercase,
-                &[
-                    "latest",
-                    "today",
-                    "right now",
-                    "current",
-                    "news",
-                    "trending",
-                    "recent",
-                    "this week",
-                    "public debate",
-                    "x/twitter",
-                ],
-            ),
+            is_simple: word_count <= 20 || contains_any(&prompt_lowercase, SIMPLE_KEYWORDS),
+            needs_current_context: contains_any(&prompt_lowercase, CURRENT_CONTEXT_KEYWORDS),
             needs_deep_reasoning_or_code: contains_any(
                 &prompt_lowercase,
-                &[
-                    "code",
-                    "rust",
-                    "python",
-                    "javascript",
-                    "typescript",
-                    "debug",
-                    "error",
-                    "stack trace",
-                    "architecture",
-                    "refactor",
-                    "plan",
-                    "analyze",
-                    "reason",
-                    "tradeoff",
-                    "security",
-                ],
+                DEEP_REASONING_OR_CODE_KEYWORDS,
             ) || word_count >= 120,
             is_creative_or_general_cloud: contains_any(
                 &prompt_lowercase,
-                &[
-                    "write",
-                    "draft",
-                    "rewrite",
-                    "brainstorm",
-                    "summarize",
-                    "explain",
-                    "email",
-                    "story",
-                ],
+                CREATIVE_OR_GENERAL_CLOUD_KEYWORDS,
             ),
         }
     }

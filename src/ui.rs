@@ -4,6 +4,7 @@ mod history;
 mod model_list;
 mod model_picker;
 mod palette;
+mod theme;
 
 use ratatui::{
     Frame,
@@ -30,9 +31,9 @@ pub fn draw(frame: &mut Frame, app: &App) {
     let page = Layout::default()
         .direction(Direction::Vertical)
         .constraints([
-            Constraint::Length(7),
+            Constraint::Length(app.model_panel_height()),
             Constraint::Min(8),
-            Constraint::Length(5),
+            Constraint::Length(app.status_panel_height()),
             Constraint::Length(3),
         ])
         .split(frame.area());

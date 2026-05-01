@@ -27,7 +27,7 @@ fn registry_resolves_aliases_to_same_command_id() {
 fn registry_filters_visible_suggestions_by_prefix() {
     let registry = CommandRegistry::default();
     let names = registry
-        .suggestions("/m")
+        .suggestions("/mo")
         .into_iter()
         .map(|suggestion| suggestion.name)
         .collect::<Vec<_>>();
@@ -53,6 +53,6 @@ fn registry_builds_available_commands_from_definitions() {
 
     assert_eq!(
         registry.available_commands(),
-        "/clear, /models, /backends, /rules, /help, /history, /quit"
+        "/clear, /models, /backends, /rules, /help, /history, /quit, /context, /tokens, /bookmark, /memory, /summary, /export, /theme, /resize, /voice"
     );
 }

@@ -1,159 +1,72 @@
-//! Small data types that describe a language model and the backend that serves it.
-//!
-//! The rest of the app can talk about "models" without needing to know exact
-//! HTTP details for Ollama, Anthropic, OpenAI, or xAI.
+mod model;
+mod provider;
+mod route;
+mod turn;
 
-/// The backend service that knows how to run a model.
-#[derive(Clone, Debug, Eq, PartialEq)]
-pub enum Provider {
-    /// A local Ollama server, usually listening on http://localhost:11434.
-    Ollama,
+use anyhow::{Context, Result, bail};
 
-    /// Anthropic's Claude API.
-    Anthropic,
+pub use model::LanguageModel;
+pub use provider::Provider;
+pub use route::RouteDecision;
+pub use turn::ConversationTurn;
 
-    /// OpenAI's API.
-    OpenAi,
+pub(crate) fn append_utf8_chunk(
+    source: &str,
+    pending: &mut Vec<u8>,
+    output: &mut String,
+    chunk: &[u8],
+) -> Result<()> {
+    pending.extend_from_slice(chunk);
 
-    /// xAI's Grok API.
-    Xai,
-}
-
-impl Provider {
-    /// Human-readable provider name for status messages and the TUI.
-    pub fn label(&self) -> &'static str {
-        match self {
-            Provider::Ollama => "Ollama",
-            Provider::Anthropic => "Anthropic",
-            Provider::OpenAi => "OpenAI",
-            Provider::Xai => "xAI",
+    match std::str::from_utf8(pending.as_slice()) {
+        Ok(decoded) => {
+            output.push_str(decoded);
+            pending.clear();
         }
-    }
-}
-
-/// A language model the router is allowed to choose.
-///
-/// Each model has a provider-specific model name, a provider so the app knows
-/// how to call it, and a few plain-English strengths that make the UI easier to
-/// understand later.
-#[derive(Clone, Debug)]
-pub struct LanguageModel {
-    /// The provider-specific model name.
-    ///
-    /// For Ollama this must match the model name shown by `ollama list`.
-    /// Example: `llama3`, `llama3.1`, or `codellama`.
-    pub name: String,
-
-    /// The backend that serves this model.
-    pub provider: Provider,
-
-    /// Human-readable notes used by the TUI.
-    ///
-    /// These do not drive the router. They are just there so you can see why a
-    /// model exists in the list.
-    pub strengths: Vec<String>,
-
-    /// Whether the router is allowed to choose this model right now.
-    ///
-    /// Cloud models are disabled when their API key environment variable is not
-    /// present. Local Ollama models stay enabled because the Ollama backend
-    /// performs the real installed-model check before generation.
-    pub enabled: bool,
-
-    /// Short setup note shown when a model is not currently usable.
-    pub disabled_reason: Option<String>,
-}
-
-impl LanguageModel {
-    /// Build a model entry backed by Ollama.
-    ///
-    /// This helper keeps model declarations short and easy to scan in
-    /// `router.rs`.
-    pub fn ollama(name: &str, strengths: &[&str]) -> Self {
-        Self::new(Provider::Ollama, name, strengths, true, None)
-    }
-
-    /// Build a Claude model entry.
-    pub fn anthropic(
-        name: &str,
-        strengths: &[&str],
-        enabled: bool,
-        disabled_reason: Option<String>,
-    ) -> Self {
-        Self::new(
-            Provider::Anthropic,
-            name,
-            strengths,
-            enabled,
-            disabled_reason,
-        )
-    }
-
-    /// Build an OpenAI model entry.
-    pub fn openai(
-        name: &str,
-        strengths: &[&str],
-        enabled: bool,
-        disabled_reason: Option<String>,
-    ) -> Self {
-        Self::new(Provider::OpenAi, name, strengths, enabled, disabled_reason)
-    }
-
-    /// Build an xAI model entry.
-    pub fn xai(
-        name: &str,
-        strengths: &[&str],
-        enabled: bool,
-        disabled_reason: Option<String>,
-    ) -> Self {
-        Self::new(Provider::Xai, name, strengths, enabled, disabled_reason)
-    }
-
-    /// Build a model entry from the individual pieces.
-    fn new(
-        provider: Provider,
-        name: &str,
-        strengths: &[&str],
-        enabled: bool,
-        disabled_reason: Option<String>,
-    ) -> Self {
-        Self {
-            name: name.to_string(),
-            provider,
-            strengths: strengths
-                .iter()
-                .map(|strength| strength.to_string())
-                .collect(),
-            enabled,
-            disabled_reason,
+        Err(error) if error.error_len().is_none() => {
+            let valid_up_to = error.valid_up_to();
+            if valid_up_to > 0 {
+                let decoded = std::str::from_utf8(&pending[..valid_up_to])
+                    .expect("valid_up_to marks a valid UTF-8 prefix");
+                output.push_str(decoded);
+                pending.drain(..valid_up_to);
+            }
         }
+        Err(error) => bail!("{source} stream returned invalid UTF-8: {error}"),
     }
 
-    /// Label used in history and status messages.
-    pub fn display_label(&self) -> String {
-        format!("{} {}", self.provider.label(), self.name)
+    Ok(())
+}
+
+pub(crate) fn finish_utf8_stream(
+    source: &str,
+    pending: &mut Vec<u8>,
+    output: &mut String,
+) -> Result<()> {
+    if pending.is_empty() {
+        return Ok(());
     }
+
+    let decoded = std::str::from_utf8(pending.as_slice())
+        .with_context(|| format!("{source} stream ended mid UTF-8 character"))?;
+    output.push_str(decoded);
+    pending.clear();
+    Ok(())
 }
 
-/// One completed user/assistant pair used as bounded conversation context.
-#[derive(Clone, Debug, Eq, PartialEq)]
-pub struct ConversationTurn {
-    /// Text originally typed by the user.
-    pub user: String,
+#[cfg(test)]
+mod tests {
+    use super::{append_utf8_chunk, finish_utf8_stream};
 
-    /// Assistant answer shown for that user prompt.
-    pub assistant: String,
-}
+    #[test]
+    fn utf8_chunk_decoder_preserves_split_codepoint() {
+        let mut pending = Vec::new();
+        let mut output = String::new();
 
-/// The router's final decision for a prompt.
-///
-/// Keeping the model and explanation together makes the app transparent: every
-/// answer can show both what was selected and why it was selected.
-#[derive(Clone, Debug)]
-pub struct RouteDecision {
-    /// The model that should answer the prompt.
-    pub model: LanguageModel,
+        append_utf8_chunk("test", &mut pending, &mut output, b"hi \xf0\x9f").unwrap();
+        append_utf8_chunk("test", &mut pending, &mut output, b"\x98\x80").unwrap();
+        finish_utf8_stream("test", &mut pending, &mut output).unwrap();
 
-    /// Short explanation written for a human, not for another program.
-    pub reason: String,
+        assert_eq!(output, "hi \u{1f600}");
+    }
 }

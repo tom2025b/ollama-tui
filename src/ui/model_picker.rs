@@ -1,12 +1,14 @@
 use ratatui::{
     Frame,
     layout::Rect,
-    style::{Color, Modifier, Style},
+    style::{Modifier, Style},
     text::{Line, Span},
     widgets::{Block, Borders, Clear, List, ListItem},
 };
 
 use crate::app::App;
+
+use super::theme;
 
 /// Draw the interactive `/models` picker.
 ///
@@ -44,8 +46,8 @@ pub(super) fn draw_models_picker(frame: &mut Frame, app: &App, input_area: Rect)
 
         let row_style = if highlighted {
             Style::default()
-                .bg(Color::Cyan)
-                .fg(Color::Black)
+                .bg(theme::highlight_bg(app))
+                .fg(theme::highlight_fg(app))
                 .add_modifier(Modifier::BOLD)
         } else {
             Style::default()
@@ -53,7 +55,7 @@ pub(super) fn draw_models_picker(frame: &mut Frame, app: &App, input_area: Rect)
         let hint_style = if highlighted {
             row_style
         } else {
-            Style::default().fg(Color::DarkGray)
+            Style::default().fg(theme::muted(app))
         };
 
         let (label, hint) = if row_index == 0 {

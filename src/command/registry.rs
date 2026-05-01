@@ -1,100 +1,33 @@
 mod definitions;
+mod types;
 
-use super::handlers::CommandContext;
 use super::parser::{ParsedCommand, suggestion_prefix};
-use definitions::COMMANDS;
-
-/// Stable identifier for command behavior.
-#[derive(Clone, Copy, Debug, Eq, PartialEq)]
-pub enum CommandId {
-    Backend,
-    Clear,
-    Help,
-    History,
-    Model,
-    Quit,
-    Rules,
-}
-
-/// One visible autocomplete row.
-#[derive(Clone, Copy, Debug, Eq, PartialEq)]
-pub struct CommandSuggestion {
-    pub name: &'static str,
-    pub hint: &'static str,
-}
-
-/// One command row shown by the help overlay and unknown-command fallback.
-#[derive(Clone, Copy, Debug, Eq, PartialEq)]
-pub struct CommandHelp {
-    pub name: &'static str,
-    pub detail: &'static str,
-}
-
-/// Resolved command metadata returned by the registry after parsing.
-#[derive(Clone, Copy, Debug)]
-pub struct RegisteredCommand {
-    pub id: CommandId,
-    executor: CommandExecutor,
-}
-
-impl RegisteredCommand {
-    pub fn execute(self, context: &mut dyn CommandContext, command: &ParsedCommand) {
-        (self.executor)(context, command);
-    }
-}
-
-pub(super) type CommandExecutor = fn(&mut dyn CommandContext, &ParsedCommand);
-
-#[derive(Clone, Copy, Debug)]
-pub(super) struct CommandDefinition {
-    pub(super) id: CommandId,
-    pub(super) display_name: &'static str,
-    pub(super) hint: &'static str,
-    pub(super) detail: &'static str,
-    pub(super) names: &'static [CommandName],
-    pub(super) executor: CommandExecutor,
-}
-
-impl CommandDefinition {
-    fn registered_command(self) -> RegisteredCommand {
-        RegisteredCommand {
-            id: self.id,
-            executor: self.executor,
-        }
-    }
-
-    fn help(self) -> CommandHelp {
-        CommandHelp {
-            name: self.display_name,
-            detail: self.detail,
-        }
-    }
-}
-
-#[derive(Clone, Copy, Debug)]
-pub(super) struct CommandName {
-    pub(super) name: &'static str,
-    pub(super) visible: bool,
-}
+use definitions::COMMAND_GROUPS;
+use types::CommandDefinition;
+pub use types::{CommandHelp, CommandId, CommandSuggestion, RegisteredCommand};
 
 /// Registry for all slash-command names, aliases, help text, and handlers.
 #[derive(Clone, Copy, Debug)]
 pub struct CommandRegistry {
-    definitions: &'static [CommandDefinition],
+    groups: &'static [&'static [CommandDefinition]],
 }
 
 impl Default for CommandRegistry {
     fn default() -> Self {
         Self {
-            definitions: COMMANDS,
+            groups: COMMAND_GROUPS,
         }
     }
 }
 
 impl CommandRegistry {
+    fn definitions(&self) -> impl Iterator<Item = &'static CommandDefinition> + '_ {
+        self.groups.iter().flat_map(|group| group.iter())
+    }
+
     /// Resolve a parsed command to its registered executable definition.
     pub fn resolve(&self, parsed: &ParsedCommand) -> Option<RegisteredCommand> {
-        self.definitions.iter().find_map(|definition| {
+        self.definitions().find_map(|definition| {
             definition
                 .names
                 .iter()
@@ -109,8 +42,7 @@ impl CommandRegistry {
             return Vec::new();
         };
 
-        self.definitions
-            .iter()
+        self.definitions()
             .flat_map(|definition| {
                 definition
                     .names
@@ -135,8 +67,7 @@ impl CommandRegistry {
 
     /// Command help rows in display order.
     pub fn help_entries(&self) -> Vec<CommandHelp> {
-        self.definitions
-            .iter()
+        self.definitions()
             .map(|definition| definition.help())
             .collect()
     }

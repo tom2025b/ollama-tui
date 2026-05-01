@@ -1,13 +1,15 @@
 use ratatui::{
     Frame,
     layout::Rect,
-    style::{Color, Modifier, Style},
+    style::{Modifier, Style},
     text::{Line, Span},
     widgets::{Block, Borders, Clear, List, ListItem},
 };
 
 use crate::app::App;
 use crate::command::CommandSuggestion;
+
+use super::theme;
 
 /// Draw the slash-command autocomplete popup just above the input box.
 ///
@@ -48,8 +50,8 @@ pub(super) fn draw_command_palette(
             let highlighted = index == selected;
             let row_style = if highlighted {
                 Style::default()
-                    .bg(Color::Cyan)
-                    .fg(Color::Black)
+                    .bg(theme::highlight_bg(app))
+                    .fg(theme::highlight_fg(app))
                     .add_modifier(Modifier::BOLD)
             } else {
                 Style::default()
@@ -57,7 +59,7 @@ pub(super) fn draw_command_palette(
             let hint_style = if highlighted {
                 row_style
             } else {
-                Style::default().fg(Color::DarkGray)
+                Style::default().fg(theme::muted(app))
             };
             let padding = " ".repeat(command_width.saturating_sub(suggestion.name.len()) + 2);
 

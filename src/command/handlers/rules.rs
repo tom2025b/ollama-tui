@@ -1,9 +1,10 @@
-use std::path::PathBuf;
+mod edit;
 
 use crate::command::parser::ParsedCommand;
 use crate::rules::RulesTarget;
 
 use super::session::{CommandContext, ExternalAction};
+pub use edit::complete_rules_edit;
 
 pub fn handle_rules_command(context: &mut dyn CommandContext, command: &ParsedCommand) {
     let mut args = command.args().iter().map(String::as_str);
@@ -34,25 +35,7 @@ pub fn handle_rules_command(context: &mut dyn CommandContext, command: &ParsedCo
             context.set_status("Rules turned on and reloaded.".to_string());
         }
         Some("toggle") => {
-            let enabled = !context.rules_enabled();
-            if enabled {
-                context.reload_rules(true);
-            } else {
-                context.set_rules_enabled(false);
-            }
-            context.append_local_message(
-                command.raw(),
-                format!(
-                    "Rules are now {}.\nRules: {}",
-                    if enabled { "on" } else { "off" },
-                    context.rules_status_line()
-                ),
-            );
-            context.set_status(if enabled {
-                "Rules turned on.".to_string()
-            } else {
-                "Rules turned off.".to_string()
-            });
+            toggle_rules(context, command.raw());
         }
         _ => {
             context.append_local_message(
@@ -64,41 +47,27 @@ pub fn handle_rules_command(context: &mut dyn CommandContext, command: &ParsedCo
     }
 }
 
-/// Update command state after an external rules edit finishes.
-pub fn complete_rules_edit(
-    context: &mut dyn CommandContext,
-    target: RulesTarget,
-    path: PathBuf,
-    editor_result: Result<(), String>,
-) {
-    match editor_result {
-        Ok(()) => {
-            let rules_were_enabled = context.rules_enabled();
-            context.reload_rules(rules_were_enabled);
-            context.append_local_message(
-                "/rules",
-                format!(
-                    "Reloaded {} from {}.\nRules: {}",
-                    target.label(),
-                    path.display(),
-                    context.rules_status_line()
-                ),
-            );
-            context.set_status(format!("Reloaded {}.", target.label()));
-        }
-        Err(error) => {
-            context.append_local_message(
-                "/rules",
-                format!(
-                    "Could not edit {} at {}.\n{}",
-                    target.label(),
-                    path.display(),
-                    error
-                ),
-            );
-            context.set_status(format!("Failed to edit {}.", target.label()));
-        }
+fn toggle_rules(context: &mut dyn CommandContext, input: &str) {
+    let enabled = !context.rules_enabled();
+    if enabled {
+        context.reload_rules(true);
+    } else {
+        context.set_rules_enabled(false);
     }
+
+    context.append_local_message(
+        input,
+        format!(
+            "Rules are now {}.\nRules: {}",
+            if enabled { "on" } else { "off" },
+            context.rules_status_line()
+        ),
+    );
+    context.set_status(if enabled {
+        "Rules turned on.".to_string()
+    } else {
+        "Rules turned off.".to_string()
+    });
 }
 
 fn queue_rules_edit(context: &mut dyn CommandContext, input: &str, target: RulesTarget) {

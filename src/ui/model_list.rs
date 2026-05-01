@@ -1,12 +1,14 @@
 use ratatui::{
     Frame,
     layout::Rect,
-    style::{Color, Modifier, Style},
+    style::{Modifier, Style},
     text::{Line, Span},
     widgets::{Block, Borders, List, ListItem},
 };
 
 use crate::app::App;
+
+use super::theme;
 
 /// Draw the models that the router can currently use.
 pub(super) fn draw_models(frame: &mut Frame, app: &App, area: Rect) {
@@ -22,10 +24,10 @@ pub(super) fn draw_models(frame: &mut Frame, app: &App, area: Rect) {
                 .unwrap_or_default();
             let model_style = if model.enabled {
                 Style::default()
-                    .fg(Color::Cyan)
+                    .fg(theme::accent(app))
                     .add_modifier(Modifier::BOLD)
             } else {
-                Style::default().fg(Color::DarkGray)
+                Style::default().fg(theme::muted(app))
             };
 
             ListItem::new(Line::from(vec![

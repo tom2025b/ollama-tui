@@ -4,6 +4,7 @@ use crate::router::ModelRouter;
 use crate::rules::RulesState;
 
 use super::ChatMessage;
+use super::settings::{LayoutMode, UiTheme, VoiceSettings};
 
 /// All state needed to draw and update the application.
 ///
@@ -48,6 +49,9 @@ pub struct App {
 
     pub(super) models_picker_index: usize,
     pub(super) pinned_model: Option<LanguageModel>,
+    pub(super) theme: UiTheme,
+    pub(super) layout_mode: LayoutMode,
+    pub(super) voice: VoiceSettings,
 }
 
 impl App {
@@ -72,6 +76,9 @@ impl App {
             show_models_picker: false,
             models_picker_index: 0,
             pinned_model: None,
+            theme: UiTheme::Dark,
+            layout_mode: LayoutMode::Normal,
+            voice: VoiceSettings::default(),
         }
     }
 }

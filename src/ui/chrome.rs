@@ -1,19 +1,21 @@
 use ratatui::{
     Frame,
     layout::Rect,
-    style::{Color, Modifier, Style},
+    style::{Modifier, Style},
     text::{Line, Span},
     widgets::{Block, Borders, Paragraph},
 };
 
 use crate::app::App;
 
+use super::theme;
+
 /// Draw the current application status.
 pub(super) fn draw_status(frame: &mut Frame, app: &App, area: Rect) {
     let status_color = if app.waiting_for_model {
-        Color::Yellow
+        theme::warning(app)
     } else {
-        Color::Gray
+        theme::muted(app)
     };
 
     let status = Paragraph::new(vec![
@@ -43,7 +45,23 @@ pub(super) fn draw_input(frame: &mut Frame, app: &App, area: Rect) {
 
     frame.render_widget(input, area);
 
-    let cursor_x = area.x + 1 + app.input.len().min(area.width.saturating_sub(2) as usize) as u16;
+    let cursor_x = area.x + 1 + input_cursor_offset(&app.input, area.width.saturating_sub(2));
     let cursor_y = area.y + 1;
     frame.set_cursor_position((cursor_x, cursor_y));
+}
+
+fn input_cursor_offset(input: &str, max_width: u16) -> u16 {
+    Line::from(input).width().min(max_width as usize) as u16
+}
+
+#[cfg(test)]
+mod tests {
+    use super::input_cursor_offset;
+
+    #[test]
+    fn input_cursor_offset_uses_terminal_width() {
+        assert_eq!(input_cursor_offset("\u{00e9}", 10), 1);
+        assert_eq!(input_cursor_offset("\u{1f600}", 10), 2);
+        assert_eq!(input_cursor_offset("abcdef", 3), 3);
+    }
 }

@@ -1,12 +1,14 @@
 use ratatui::{
     Frame,
     layout::Rect,
-    style::{Color, Modifier, Style},
+    style::{Modifier, Style},
     text::{Line, Span},
     widgets::{Block, Borders, Paragraph, Wrap},
 };
 
 use crate::app::{App, ChatMessage};
+
+use super::theme;
 
 /// Draw previous prompt/answer pairs with user-controlled scrolling.
 ///
@@ -17,7 +19,7 @@ pub(super) fn draw_history(frame: &mut Frame, app: &App, area: Rect) {
     let history_text = if app.history.is_empty() {
         vec![Line::from("No prompts yet.")]
     } else {
-        history_as_lines(&app.history)
+        history_as_lines(app, &app.history)
     };
 
     let visible_height = area.height.saturating_sub(2) as usize;
@@ -44,7 +46,7 @@ pub(super) fn draw_history(frame: &mut Frame, app: &App, area: Rect) {
     frame.render_widget(history, area);
 }
 
-fn history_as_lines(history: &[ChatMessage]) -> Vec<Line<'static>> {
+fn history_as_lines(app: &App, history: &[ChatMessage]) -> Vec<Line<'static>> {
     let mut lines = Vec::new();
 
     for message in history {
@@ -56,14 +58,16 @@ fn history_as_lines(history: &[ChatMessage]) -> Vec<Line<'static>> {
         );
 
         let answer_style = if message.failed {
-            Style::default().fg(Color::Red).add_modifier(Modifier::BOLD)
+            Style::default()
+                .fg(theme::error(app))
+                .add_modifier(Modifier::BOLD)
         } else if message.in_progress {
             Style::default()
-                .fg(Color::Yellow)
+                .fg(theme::warning(app))
                 .add_modifier(Modifier::BOLD)
         } else {
             Style::default()
-                .fg(Color::Green)
+                .fg(theme::success(app))
                 .add_modifier(Modifier::BOLD)
         };
         let answer_label = if message.in_progress {
@@ -80,7 +84,7 @@ fn history_as_lines(history: &[ChatMessage]) -> Vec<Line<'static>> {
         push_labeled_multiline(&mut lines, answer_label, answer_style, &answer_text);
 
         lines.push(Line::from(vec![
-            Span::styled("Route: ", Style::default().fg(Color::Yellow)),
+            Span::styled("Route: ", Style::default().fg(theme::warning(app))),
             Span::raw(message.route_reason.clone()),
         ]));
 

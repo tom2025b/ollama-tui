@@ -1,5 +1,7 @@
-use super::{App, ChatMessage, MAX_CONTEXT_TURNS, MAX_STORED_TURNS, ModelEvent, SPINNER_FRAMES};
-use crate::llm::ConversationTurn;
+mod context;
+mod local;
+
+use super::{App, ChatMessage, ModelEvent, SPINNER_FRAMES};
 
 impl App {
     /// Apply one streamed model event to the visible conversation.
@@ -82,53 +84,10 @@ impl App {
         self.pending_external_action.take()
     }
 
-    pub(crate) fn conversation_context(&self) -> Vec<ConversationTurn> {
-        let mut turns = self
-            .history
-            .iter()
-            .rev()
-            .filter(|message| {
-                message.include_in_context
-                    && !message.in_progress
-                    && !message.failed
-                    && !message.answer.trim().is_empty()
-            })
-            .take(MAX_CONTEXT_TURNS)
-            .map(|message| ConversationTurn {
-                user: message.prompt.clone(),
-                assistant: message.answer.clone(),
-            })
-            .collect::<Vec<_>>();
-
-        turns.reverse();
-        turns
-    }
-
-    pub(crate) fn trim_history(&mut self) {
-        let overflow = self.history.len().saturating_sub(MAX_STORED_TURNS);
-        if overflow > 0 {
-            self.history.drain(0..overflow);
-        }
-    }
-
     fn active_message_mut(&mut self) -> Option<&mut ChatMessage> {
         self.history
             .iter_mut()
             .rev()
             .find(|message| message.in_progress)
-    }
-
-    /// Add a local command result to the visible history without sending it later.
-    pub fn append_local_message(&mut self, command: &str, answer: String) {
-        self.history.push(ChatMessage {
-            prompt: command.to_string(),
-            model_name: "ollama-me".to_string(),
-            route_reason: "Local command. Not sent to any model.".to_string(),
-            answer,
-            in_progress: false,
-            failed: false,
-            include_in_context: false,
-        });
-        self.trim_history();
     }
 }

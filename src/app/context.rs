@@ -1,7 +1,8 @@
 use std::path::PathBuf;
 
 use super::App;
-use crate::command::handlers::{CommandContext, ExternalAction, HistoryEntry};
+use crate::command::handlers::CommandContext;
+use crate::command::handlers::{ExternalAction, HistoryEntry, Setting, SettingEdit};
 use crate::llm::LanguageModel;
 use crate::rules::RulesTarget;
 
@@ -69,6 +70,10 @@ impl CommandContext for App {
         self.rules.status_line()
     }
 
+    fn context_turn_limit(&self) -> usize {
+        crate::app::MAX_CONTEXT_TURNS
+    }
+
     fn history_entries(&self) -> Vec<HistoryEntry<'_>> {
         self.history
             .iter()
@@ -82,6 +87,22 @@ impl CommandContext for App {
                 include_in_context: message.include_in_context,
             })
             .collect()
+    }
+
+    fn include_latest_history_entry(&mut self, include: bool) -> Option<String> {
+        App::include_latest_history_entry(self, include)
+    }
+
+    fn clear_context_memory(&mut self) -> usize {
+        App::clear_context_memory(self)
+    }
+
+    fn setting_report(&self, setting: Setting) -> String {
+        App::setting_report(self, setting)
+    }
+
+    fn set_setting(&mut self, setting: SettingEdit<'_>) -> Result<String, String> {
+        App::set_setting(self, setting)
     }
 
     fn open_help_overlay(&mut self) {

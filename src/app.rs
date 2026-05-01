@@ -4,6 +4,7 @@ mod input;
 mod models;
 mod navigation;
 mod prompt;
+mod settings;
 mod state;
 mod types;
 

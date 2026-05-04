@@ -8,12 +8,12 @@ use crate::rules::RulesTarget;
 
 impl CommandContext for App {
     fn waiting_for_model(&self) -> bool {
-        self.waiting_for_model
+        self.session.waiting_for_model
     }
 
     fn clear_conversation(&mut self) {
-        self.history.clear();
-        self.active_model_name = None;
+        self.session.history.clear();
+        self.session.active_model_name = None;
     }
 
     fn open_models_picker(&mut self) {
@@ -47,7 +47,7 @@ impl CommandContext for App {
     }
 
     fn queue_external_action(&mut self, action: ExternalAction) {
-        self.pending_external_action = Some(action);
+        self.commands.queue_external_action(action);
     }
 
     fn rules_report(&self) -> String {
@@ -75,7 +75,8 @@ impl CommandContext for App {
     }
 
     fn history_entries(&self) -> Vec<HistoryEntry<'_>> {
-        self.history
+        self.session
+            .history
             .iter()
             .map(|message| HistoryEntry {
                 prompt: &message.prompt,
@@ -106,12 +107,12 @@ impl CommandContext for App {
     }
 
     fn open_help_overlay(&mut self) {
-        self.show_help = true;
-        self.status = "Help is open. Press q, Esc, ?, or Ctrl-C to close it.".to_string();
+        self.ui.show_help = true;
+        self.ui.status = "Help is open. Press q, Esc, ?, or Ctrl-C to close it.".to_string();
     }
 
     fn set_status(&mut self, status: String) {
-        self.status = status;
+        self.ui.status = status;
     }
 
     fn quit(&mut self) {

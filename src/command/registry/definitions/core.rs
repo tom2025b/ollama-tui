@@ -17,37 +17,36 @@ pub(super) const COMMANDS: &[CommandDefinition] = &[
     },
     CommandDefinition {
         id: CommandId::Model,
-        display_name: "/models",
+        display_name: "/model",
         hint: "Pick a model to pin",
         detail: "Open the model picker; choose Auto to resume routing.",
-        names: &[
-            CommandName {
-                name: "/model",
-                visible: true,
-            },
-            CommandName {
-                name: "/models",
-                visible: true,
-            },
-        ],
+        names: &[CommandName {
+            name: "/model",
+            visible: true,
+        }],
         executor: handlers::session::open_models_command,
     },
     CommandDefinition {
         id: CommandId::Backend,
-        display_name: "/backends",
+        display_name: "/backend",
         hint: "List backend readiness",
         detail: "Show configured and unavailable backends.",
-        names: &[
-            CommandName {
-                name: "/backend",
-                visible: true,
-            },
-            CommandName {
-                name: "/backends",
-                visible: true,
-            },
-        ],
+        names: &[CommandName {
+            name: "/backend",
+            visible: true,
+        }],
         executor: handlers::backends::handle_backends_command,
+    },
+    CommandDefinition {
+        id: CommandId::Cost,
+        display_name: "/cost",
+        hint: "Open cost tracker",
+        detail: "Run the Python cost tracker, then return to the TUI.",
+        names: &[CommandName {
+            name: "/cost",
+            visible: true,
+        }],
+        executor: handlers::session::cost_command,
     },
     CommandDefinition {
         id: CommandId::Rules,

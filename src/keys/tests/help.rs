@@ -4,7 +4,7 @@ use super::support::model_event_sender;
 #[test]
 fn q_closes_help_without_quitting() {
     let mut app = App::new();
-    app.show_help = true;
+    app.ui.show_help = true;
 
     handle_key_event(
         KeyEvent::new(KeyCode::Char('q'), KeyModifiers::NONE),
@@ -12,14 +12,14 @@ fn q_closes_help_without_quitting() {
         model_event_sender(),
     );
 
-    assert!(!app.show_help);
+    assert!(!app.ui.show_help);
     assert!(!app.should_quit);
 }
 
 #[test]
 fn ctrl_c_closes_help_without_quitting() {
     let mut app = App::new();
-    app.show_help = true;
+    app.ui.show_help = true;
 
     handle_key_event(
         KeyEvent::new(KeyCode::Char('c'), KeyModifiers::CONTROL),
@@ -27,14 +27,14 @@ fn ctrl_c_closes_help_without_quitting() {
         model_event_sender(),
     );
 
-    assert!(!app.show_help);
+    assert!(!app.ui.show_help);
     assert!(!app.should_quit);
 }
 
 #[test]
 fn question_mark_release_does_not_reopen_help() {
     let mut app = App::new();
-    app.show_help = true;
+    app.ui.show_help = true;
 
     handle_key_event(
         KeyEvent::new(KeyCode::Char('?'), KeyModifiers::NONE),
@@ -51,14 +51,14 @@ fn question_mark_release_does_not_reopen_help() {
         model_event_sender(),
     );
 
-    assert!(!app.show_help);
+    assert!(!app.ui.show_help);
     assert!(!app.should_quit);
 }
 
 #[test]
 fn ctrl_c_release_after_closing_help_does_not_quit() {
     let mut app = App::new();
-    app.show_help = true;
+    app.ui.show_help = true;
 
     handle_key_event(
         KeyEvent::new(KeyCode::Char('c'), KeyModifiers::CONTROL),
@@ -75,6 +75,6 @@ fn ctrl_c_release_after_closing_help_does_not_quit() {
         model_event_sender(),
     );
 
-    assert!(!app.show_help);
+    assert!(!app.ui.show_help);
     assert!(!app.should_quit);
 }

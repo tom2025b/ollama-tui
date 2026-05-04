@@ -43,16 +43,13 @@ impl CommandRegistry {
         };
 
         self.definitions()
-            .flat_map(|definition| {
+            .filter(|definition| {
                 definition
                     .names
                     .iter()
-                    .filter(|name| name.visible && name.name.starts_with(prefix))
-                    .map(|name| CommandSuggestion {
-                        name: name.name,
-                        hint: definition.hint,
-                    })
+                    .any(|name| name.visible && name.name.starts_with(prefix))
             })
+            .map(|definition| definition.suggestion())
             .collect()
     }
 

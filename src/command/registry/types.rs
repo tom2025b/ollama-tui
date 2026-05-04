@@ -8,6 +8,7 @@ pub enum CommandId {
     Bookmark,
     Clear,
     Context,
+    Cost,
     Export,
     Help,
     History,
@@ -19,7 +20,6 @@ pub enum CommandId {
     Summary,
     Theme,
     Tokens,
-    Voice,
 }
 
 /// One visible autocomplete row.
@@ -33,6 +33,7 @@ pub struct CommandSuggestion {
 #[derive(Clone, Copy, Debug, Eq, PartialEq)]
 pub struct CommandHelp {
     pub name: &'static str,
+    pub hint: &'static str,
     pub detail: &'static str,
 }
 
@@ -73,7 +74,15 @@ impl CommandDefinition {
     pub(super) fn help(&self) -> CommandHelp {
         CommandHelp {
             name: self.display_name,
+            hint: self.hint,
             detail: self.detail,
+        }
+    }
+
+    pub(super) fn suggestion(&self) -> CommandSuggestion {
+        CommandSuggestion {
+            name: self.display_name,
+            hint: self.hint,
         }
     }
 }

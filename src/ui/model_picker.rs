@@ -1,16 +1,15 @@
 use ratatui::{
     Frame,
     layout::Rect,
-    style::{Modifier, Style},
     text::{Line, Span},
-    widgets::{Block, Borders, Clear, List, ListItem},
+    widgets::{Clear, List, ListItem},
 };
 
 use crate::app::App;
 
 use super::theme;
 
-/// Draw the interactive `/models` picker.
+/// Draw the interactive `/model` picker.
 ///
 /// Anchored above the input box and grown upward, just like the slash
 /// autocomplete popup, so the two overlays feel like the same control. The
@@ -31,9 +30,9 @@ pub(super) fn draw_models_picker(frame: &mut Frame, app: &App, input_area: Rect)
     };
 
     let height = visible_count as u16 + 2;
-    let width = 60.min(input_area.width);
+    let width = 84.min(input_area.width);
     let area = Rect {
-        x: input_area.x,
+        x: input_area.x + input_area.width.saturating_sub(width) / 2,
         y: input_area.y.saturating_sub(height),
         width,
         height,
@@ -45,17 +44,19 @@ pub(super) fn draw_models_picker(frame: &mut Frame, app: &App, input_area: Rect)
         let highlighted = row_index == selected;
 
         let row_style = if highlighted {
-            Style::default()
-                .bg(theme::highlight_bg(app))
-                .fg(theme::highlight_fg(app))
-                .add_modifier(Modifier::BOLD)
+            theme::selection_style(app)
         } else {
-            Style::default()
+            theme::raised_style(app)
+        };
+        let label_style = if highlighted {
+            row_style
+        } else {
+            theme::accent_style(app)
         };
         let hint_style = if highlighted {
             row_style
         } else {
-            Style::default().fg(theme::muted(app))
+            theme::muted_style(app)
         };
 
         let (label, hint) = if row_index == 0 {
@@ -72,18 +73,22 @@ pub(super) fn draw_models_picker(frame: &mut Frame, app: &App, input_area: Rect)
             )
         };
 
-        items.push(ListItem::new(Line::from(vec![
-            Span::styled(format!(" {label}"), row_style),
-            Span::styled("  ".to_string(), row_style),
-            Span::styled(format!("{hint} "), hint_style),
-        ])));
+        items.push(
+            ListItem::new(Line::from(vec![
+                Span::styled(format!(" {label}"), label_style),
+                Span::styled("  ".to_string(), row_style),
+                Span::styled(format!("{hint} "), hint_style),
+            ]))
+            .style(row_style),
+        );
     }
 
-    let popup = List::new(items).block(
-        Block::default()
-            .title("Models - ↑/↓ navigate, Enter pin, Esc cancel")
-            .borders(Borders::ALL),
-    );
+    let popup = List::new(items).block(theme::overlay_block(app, "Model Routing").title_bottom(
+        Line::from(Span::styled(
+            " Up/Down navigate | Enter pin | Esc cancel ",
+            theme::muted_style(app),
+        )),
+    ));
 
     frame.render_widget(Clear, area);
     frame.render_widget(popup, area);

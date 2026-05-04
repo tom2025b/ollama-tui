@@ -8,7 +8,7 @@ fn models_picker_navigates_and_pins_selection() {
     app.select_next_model();
     app.accept_model_selection();
 
-    assert!(!app.show_models_picker);
+    assert!(!app.ui.show_models_picker);
     assert!(app.is_pinned(&expected));
     assert!(app.current_model_label().contains("(pinned)"));
     assert!(
@@ -44,7 +44,7 @@ fn pinned_model_overrides_router_for_new_prompts() {
     app.select_next_model();
     app.accept_model_selection();
 
-    app.input = "what is the latest news today".to_string();
+    app.session.input = "what is the latest news today".to_string();
     let request = app.submit_prompt().expect("submitted request");
 
     assert_eq!(request.route.model.display_label(), pinned.display_label());
@@ -59,7 +59,7 @@ fn esc_on_picker_cancels_without_changing_pin() {
     app.select_next_model();
     app.close_models_picker();
 
-    assert!(!app.show_models_picker);
+    assert!(!app.ui.show_models_picker);
     assert!(!app.is_pinned(&candidate));
 }
 

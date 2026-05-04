@@ -13,7 +13,7 @@ fn models_picker_consumes_navigation_keys() {
         model_event_sender(),
     );
     assert_ne!(app.models_picker_index(), starting_index);
-    assert_eq!(app.scroll_offset, 0);
+    assert_eq!(app.ui.scroll_offset, 0);
 }
 
 #[test]
@@ -27,7 +27,7 @@ fn esc_in_models_picker_closes_overlay_without_quitting() {
         model_event_sender(),
     );
 
-    assert!(!app.show_models_picker);
+    assert!(!app.ui.show_models_picker);
     assert!(!app.should_quit);
 }
 
@@ -48,6 +48,6 @@ fn enter_in_models_picker_pins_selection() {
         model_event_sender(),
     );
 
-    assert!(!app.show_models_picker);
+    assert!(!app.ui.show_models_picker);
     assert!(app.is_pinned(&expected));
 }

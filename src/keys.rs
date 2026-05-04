@@ -17,7 +17,7 @@ pub fn handle_key_event(
         return;
     }
 
-    if app.show_help {
+    if app.ui.show_help {
         match key_event.code {
             KeyCode::Char('c') if key_event.modifiers.contains(KeyModifiers::CONTROL) => {
                 app.hide_help()
@@ -30,7 +30,7 @@ pub fn handle_key_event(
         return;
     }
 
-    if app.show_models_picker {
+    if app.ui.show_models_picker {
         match key_event.code {
             KeyCode::Char('c') if key_event.modifiers.contains(KeyModifiers::CONTROL) => {
                 app.close_models_picker();
@@ -93,7 +93,7 @@ pub fn handle_key_event(
         KeyCode::PageDown => app.scroll_down(PAGE_LINES),
         KeyCode::Home => app.scroll_to_top(),
         KeyCode::End => app.scroll_to_bottom(),
-        KeyCode::Char('?') if app.input.is_empty() => app.toggle_help(),
+        KeyCode::Char('?') if app.session.input.is_empty() => app.toggle_help(),
         KeyCode::Char(character) => app.push_input_char(character),
         _ => {}
     }

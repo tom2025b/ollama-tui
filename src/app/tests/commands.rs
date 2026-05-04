@@ -1,52 +1,41 @@
 use super::super::App;
 use super::support::completed_message;
+use crate::command::ExternalAction;
 
 #[test]
 fn clear_command_clears_history_without_model_request() {
     let mut app = App::new();
-    app.history.push(completed_message(1));
-    app.input = "/clear".to_string();
+    app.session.history.push(completed_message(1));
+    app.session.input = "/clear".to_string();
 
     let request = app.submit_prompt();
 
     assert!(request.is_none());
-    assert!(app.history.is_empty());
-    assert_eq!(app.status, "Conversation cleared.");
+    assert!(app.session.history.is_empty());
+    assert_eq!(app.ui.status, "Conversation cleared.");
 }
 
 #[test]
-fn models_command_opens_picker_without_model_request() {
+fn model_command_opens_picker_without_model_request() {
     let mut app = App::new();
-    app.input = "/models".to_string();
+    app.session.input = "/model".to_string();
 
     let request = app.submit_prompt();
 
     assert!(request.is_none());
-    assert!(app.show_models_picker);
-    assert!(app.history.is_empty());
-}
-
-#[test]
-fn singular_model_command_opens_picker_without_model_request() {
-    let mut app = App::new();
-    app.input = "/model".to_string();
-
-    let request = app.submit_prompt();
-
-    assert!(request.is_none());
-    assert!(app.show_models_picker);
-    assert!(app.history.is_empty());
+    assert!(app.ui.show_models_picker);
+    assert!(app.session.history.is_empty());
 }
 
 #[test]
 fn singular_backend_command_adds_local_message_without_model_request() {
     let mut app = App::new();
-    app.input = "/backend".to_string();
+    app.session.input = "/backend".to_string();
 
     let request = app.submit_prompt();
 
     assert!(request.is_none());
-    let message = app.history.last().expect("local command message");
+    let message = app.session.history.last().expect("local command message");
     assert_eq!(message.prompt, "/backend");
     assert_eq!(message.model_name, "ollama-me");
     assert!(!message.include_in_context);
@@ -56,23 +45,39 @@ fn singular_backend_command_adds_local_message_without_model_request() {
 #[test]
 fn help_command_opens_help_without_model_request() {
     let mut app = App::new();
-    app.input = "/help".to_string();
+    app.session.input = "/help".to_string();
 
     let request = app.submit_prompt();
 
     assert!(request.is_none());
-    assert!(app.show_help);
-    assert!(app.history.is_empty());
+    assert!(app.ui.show_help);
+    assert!(app.session.history.is_empty());
+}
+
+#[test]
+fn cost_command_queues_external_action_without_model_request() {
+    let mut app = App::new();
+    app.session.input = "/cost".to_string();
+
+    let request = app.submit_prompt();
+
+    assert!(request.is_none());
+    assert!(matches!(
+        app.take_external_action(),
+        Some(ExternalAction::CostReport)
+    ));
+    assert!(app.session.history.is_empty());
+    assert_eq!(app.ui.status, "Opening cost tracker.");
 }
 
 #[test]
 fn quit_command_exits_without_model_request() {
     let mut app = App::new();
-    app.input = "/quit".to_string();
+    app.session.input = "/quit".to_string();
 
     let request = app.submit_prompt();
 
     assert!(request.is_none());
     assert!(app.should_quit);
-    assert!(app.history.is_empty());
+    assert!(app.session.history.is_empty());
 }

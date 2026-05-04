@@ -18,11 +18,12 @@ impl App {
                 }
 
                 let model_name = self
+                    .session
                     .active_model_name
                     .take()
                     .unwrap_or_else(|| "the selected model".to_string());
-                self.waiting_for_model = false;
-                self.status = format!("Last answer came from {model_name}.");
+                self.session.waiting_for_model = false;
+                self.ui.status = format!("Last answer came from {model_name}.");
             }
             ModelEvent::Failed(error) => {
                 if let Some(message) = self.active_message_mut() {
@@ -34,39 +35,41 @@ impl App {
                     message.failed = true;
                 }
 
-                self.active_model_name = None;
-                self.waiting_for_model = false;
-                self.status = "Model request failed.".to_string();
+                self.session.active_model_name = None;
+                self.session.waiting_for_model = false;
+                self.ui.status = "Model request failed.".to_string();
             }
         }
     }
 
     /// Advance lightweight UI activity while a request is in progress.
     pub fn tick(&mut self) {
-        if !self.waiting_for_model {
+        if !self.session.waiting_for_model {
             return;
         }
 
-        self.activity_tick = self.activity_tick.wrapping_add(1);
-        let spinner = SPINNER_FRAMES[self.activity_tick % SPINNER_FRAMES.len()];
+        self.session.activity_tick = self.session.activity_tick.wrapping_add(1);
+        let spinner = SPINNER_FRAMES[self.session.activity_tick % SPINNER_FRAMES.len()];
         let model_name = self
+            .session
             .active_model_name
             .as_deref()
             .unwrap_or("the selected model");
-        self.status = format!("{spinner} Streaming from {model_name}...");
+        self.ui.status = format!("{spinner} Streaming from {model_name}...");
     }
 
     /// Return the model currently in use, or the most recent model if idle.
     pub fn current_model_label(&self) -> String {
-        if let Some(model_name) = &self.active_model_name {
+        if let Some(model_name) = &self.session.active_model_name {
             return model_name.clone();
         }
 
-        if let Some(pinned) = &self.pinned_model {
+        if let Some(pinned) = &self.routing.pinned_model {
             return format!("{} (pinned)", pinned.display_label());
         }
 
-        self.history
+        self.session
+            .history
             .iter()
             .rev()
             .find(|message| message.include_in_context)
@@ -81,11 +84,12 @@ impl App {
 
     /// Take the next external action requested by a local command.
     pub fn take_external_action(&mut self) -> Option<crate::command::ExternalAction> {
-        self.pending_external_action.take()
+        self.commands.take_external_action()
     }
 
     fn active_message_mut(&mut self) -> Option<&mut ChatMessage> {
-        self.history
+        self.session
+            .history
             .iter_mut()
             .rev()
             .find(|message| message.in_progress)

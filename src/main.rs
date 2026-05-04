@@ -57,7 +57,7 @@ async fn run_app(terminal: &mut AppTerminal) -> Result<()> {
             handle_key_event(key_event, &mut app, model_event_tx.clone());
         }
 
-        if let Some(action) = app.take_external_action() {
+        while let Some(action) = app.take_external_action() {
             run_external_action(terminal, &mut app, action)?;
         }
     }

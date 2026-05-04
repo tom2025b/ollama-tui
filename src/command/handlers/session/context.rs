@@ -6,6 +6,9 @@ use crate::rules::RulesTarget;
 /// External work requested by a command handler.
 #[derive(Clone, Debug)]
 pub enum ExternalAction {
+    /// Run the Python cost tracker, then return to the TUI.
+    CostReport,
+
     /// Open a rules file in nano, then reload rules when nano exits.
     EditRules {
         /// Which rules file is being edited.
@@ -32,16 +35,12 @@ pub struct HistoryEntry<'a> {
 pub enum Setting {
     Theme,
     Layout,
-    Voice,
 }
 
 #[derive(Clone, Copy, Debug, Eq, PartialEq)]
 pub enum SettingEdit<'a> {
     Theme(Option<&'a str>),
     Layout(Option<&'a str>),
-    VoiceEnabled(bool),
-    VoiceSpeed(&'a str),
-    VoiceMode(&'a str),
 }
 
 /// Execution boundary used by command handlers.

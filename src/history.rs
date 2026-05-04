@@ -1,5 +1,7 @@
 use std::{
-    env, fs, io,
+    env,
+    fs::File,
+    io,
     io::Write,
     path::{Path, PathBuf},
     process::{Command, Stdio},
@@ -8,19 +10,65 @@ use std::{
 
 const HISTORY_DIR: &str = ".local/share/ollama-me/history";
 const SEND_REPORT_RELATIVE_PATH: &str = "bin/send-report";
+const HISTORY_WRAP_WIDTH: usize = 88;
 
 /// Save a formatted history report to a user-supplied or default text file.
 pub fn save_report(report: &str, requested_path: Option<&str>) -> io::Result<PathBuf> {
-    let path = requested_path
-        .map(expand_user_path)
-        .unwrap_or_else(default_history_path);
+    let path = if let Some(p) = requested_path {
+        expand_user_path(p)
+    } else {
+        default_history_path()
+    };
 
-    if let Some(parent) = path.parent() {
-        fs::create_dir_all(parent)?;
+    let wrapped = wrap_report(report, HISTORY_WRAP_WIDTH);
+
+    let mut file = File::create(&path)?;
+    file.write_all(wrapped.as_bytes())?;
+
+    println!("Exported history to {}", path.display());
+    Ok(path)
+}
+
+/// Wrap each line of `report` at `width` columns on word boundaries, leaving
+/// blank lines and already-short lines untouched.
+fn wrap_report(report: &str, width: usize) -> String {
+    let mut out = String::with_capacity(report.len());
+
+    if width == 0 {
+        return report.to_string();
     }
 
-    fs::write(&path, report)?;
-    Ok(path)
+    for line in report.lines() {
+        if line.trim().is_empty() {
+            out.push('\n');
+            continue;
+        }
+
+        let mut current = String::new();
+
+        for word in line.split_whitespace() {
+            let extra_space = if current.is_empty() { 0 } else { 1 };
+
+            if !current.is_empty() && current.len() + word.len() + extra_space > width {
+                out.push_str(&current);
+                out.push('\n');
+                current.clear();
+            }
+
+            if !current.is_empty() {
+                current.push(' ');
+            }
+
+            current.push_str(word);
+        }
+
+        if !current.is_empty() {
+            out.push_str(&current);
+            out.push('\n');
+        }
+    }
+
+    out
 }
 
 /// Email a formatted history report through Tom's `send-report` helper.

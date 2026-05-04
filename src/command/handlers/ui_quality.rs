@@ -40,7 +40,6 @@ fn handle_setting_command(
     let result = match setting {
         Setting::Theme => context.set_setting(SettingEdit::Theme(requested)),
         Setting::Layout => context.set_setting(SettingEdit::Layout(requested)),
-        Setting::Voice => Err("Unknown setting.".to_string()),
     };
 
     match result {

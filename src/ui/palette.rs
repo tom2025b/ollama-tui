@@ -1,9 +1,8 @@
 use ratatui::{
     Frame,
     layout::Rect,
-    style::{Modifier, Style},
     text::{Line, Span},
-    widgets::{Block, Borders, Clear, List, ListItem},
+    widgets::{Clear, List, ListItem},
 };
 
 use crate::app::App;
@@ -23,19 +22,19 @@ pub(super) fn draw_command_palette(
     input_area: Rect,
     suggestions: &[CommandSuggestion],
 ) {
-    const MAX_VISIBLE: usize = 8;
-
-    let visible_count = suggestions.len().min(MAX_VISIBLE);
+    let selected = app.suggestion_index();
+    let max_visible = input_area.y.saturating_sub(2).max(1) as usize;
+    let (scroll_start, visible_count) =
+        visible_suggestion_window(suggestions.len(), selected, max_visible);
     let height = visible_count as u16 + 2;
-    let width = 50.min(input_area.width);
+    let width = 84.min(input_area.width);
     let area = Rect {
-        x: input_area.x,
+        x: input_area.x + input_area.width.saturating_sub(width) / 2,
         y: input_area.y.saturating_sub(height),
         width,
         height,
     };
 
-    let selected = app.suggestion_index();
     let command_width = suggestions
         .iter()
         .map(|suggestion| suggestion.name.len())
@@ -44,39 +43,82 @@ pub(super) fn draw_command_palette(
 
     let items: Vec<ListItem> = suggestions
         .iter()
-        .take(MAX_VISIBLE)
+        .skip(scroll_start)
+        .take(visible_count)
         .enumerate()
-        .map(|(index, suggestion)| {
-            let highlighted = index == selected;
+        .map(|(offset, suggestion)| {
+            let highlighted = scroll_start + offset == selected;
             let row_style = if highlighted {
-                Style::default()
-                    .bg(theme::highlight_bg(app))
-                    .fg(theme::highlight_fg(app))
-                    .add_modifier(Modifier::BOLD)
+                theme::selection_style(app)
             } else {
-                Style::default()
+                theme::raised_style(app)
+            };
+            let command_style = if highlighted {
+                row_style
+            } else {
+                theme::accent_style(app)
             };
             let hint_style = if highlighted {
                 row_style
             } else {
-                Style::default().fg(theme::muted(app))
+                theme::muted_style(app)
             };
             let padding = " ".repeat(command_width.saturating_sub(suggestion.name.len()) + 2);
 
             ListItem::new(Line::from(vec![
-                Span::styled(format!(" {}", suggestion.name), row_style),
+                Span::styled(format!(" {}", suggestion.name), command_style),
                 Span::styled(padding, row_style),
                 Span::styled(format!("{} ", suggestion.hint), hint_style),
             ]))
+            .style(row_style)
         })
         .collect();
 
-    let popup = List::new(items).block(
-        Block::default()
-            .title("Commands - Tab/Enter accept, Esc dismiss")
-            .borders(Borders::ALL),
-    );
+    let popup = List::new(items).block(theme::overlay_block(app, "Command Palette").title_bottom(
+        Line::from(Span::styled(
+            " Tab/Enter accept | Esc dismiss ",
+            theme::muted_style(app),
+        )),
+    ));
 
     frame.render_widget(Clear, area);
     frame.render_widget(popup, area);
+}
+
+fn visible_suggestion_window(
+    suggestion_count: usize,
+    selected: usize,
+    max_visible: usize,
+) -> (usize, usize) {
+    if suggestion_count == 0 || max_visible == 0 {
+        return (0, 0);
+    }
+
+    let visible_count = suggestion_count.min(max_visible);
+    let selected = selected.min(suggestion_count - 1);
+    let scroll_start = if selected >= visible_count {
+        selected + 1 - visible_count
+    } else {
+        0
+    };
+
+    (scroll_start, visible_count)
+}
+
+#[cfg(test)]
+mod tests {
+    use super::visible_suggestion_window;
+
+    #[test]
+    fn suggestion_window_shows_all_rows_when_they_fit() {
+        assert_eq!(visible_suggestion_window(16, 15, 20), (0, 16));
+    }
+
+    #[test]
+    fn suggestion_window_scrolls_to_keep_selection_visible() {
+        assert_eq!(visible_suggestion_window(16, 0, 8), (0, 8));
+        assert_eq!(visible_suggestion_window(16, 7, 8), (0, 8));
+        assert_eq!(visible_suggestion_window(16, 8, 8), (1, 8));
+        assert_eq!(visible_suggestion_window(16, 15, 8), (8, 8));
+    }
 }

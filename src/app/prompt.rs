@@ -5,10 +5,10 @@ use crate::router::Router;
 impl App {
     /// Try to submit the current prompt.
     pub fn submit_prompt(&mut self) -> Option<PendingRequest> {
-        let prompt = self.input.trim().to_string();
+        let prompt = self.session.input.trim().to_string();
 
         if prompt.is_empty() {
-            self.status = "Write a prompt before pressing Enter.".to_string();
+            self.ui.status = "Write a prompt before pressing Enter.".to_string();
             return None;
         }
 
@@ -16,8 +16,8 @@ impl App {
             return None;
         }
 
-        if self.waiting_for_model {
-            self.status = "A model is already answering. Wait for it to finish.".to_string();
+        if self.session.waiting_for_model {
+            self.ui.status = "A model is already answering. Wait for it to finish.".to_string();
             return None;
         }
 
@@ -31,14 +31,14 @@ impl App {
             route.reason.clone()
         };
 
-        self.input.clear();
-        self.waiting_for_model = true;
-        self.active_model_name = Some(model_name.clone());
-        self.activity_tick = 0;
-        self.scroll_offset = 0;
-        self.status = format!("Sent to {model_name}. Waiting for first token...");
+        self.session.input.clear();
+        self.session.waiting_for_model = true;
+        self.session.active_model_name = Some(model_name.clone());
+        self.session.activity_tick = 0;
+        self.ui.scroll_offset = 0;
+        self.ui.status = format!("Sent to {model_name}. Waiting for first token...");
 
-        self.history.push(ChatMessage {
+        self.session.history.push(ChatMessage {
             prompt: prompt.clone(),
             model_name,
             route_reason,
@@ -63,24 +63,24 @@ impl App {
             return false;
         };
 
-        self.input.clear();
-        let dispatch = self.command_dispatcher.dispatch(command);
-        let available_commands = self.command_dispatcher.available_commands();
+        self.session.input.clear();
+        let dispatch = self.commands.command_dispatcher.dispatch(command);
+        let available_commands = self.commands.command_dispatcher.available_commands();
         crate::command::execute_dispatch(self, dispatch, &available_commands);
         true
     }
 
     fn route_prompt(&self, prompt: &str) -> RouteDecision {
-        if let Some(pinned) = &self.pinned_model {
+        if let Some(pinned) = &self.routing.pinned_model {
             return RouteDecision {
                 model: pinned.clone(),
                 reason: format!(
-                    "Pinned to {} via /models picker. Router skipped.",
+                    "Pinned to {} via /model picker. Router skipped.",
                     pinned.display_label()
                 ),
             };
         }
 
-        self.router.route(prompt)
+        self.routing.router.route(prompt)
     }
 }

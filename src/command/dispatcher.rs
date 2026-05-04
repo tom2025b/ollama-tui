@@ -60,11 +60,11 @@ mod tests {
     #[test]
     fn dispatcher_resolves_registered_command() {
         let dispatcher = CommandDispatcher::default();
-        let result = dispatcher.dispatch(parse("/models"));
+        let result = dispatcher.dispatch(parse("/model"));
 
         match result {
             DispatchResult::Execute(invocation) => {
-                assert_eq!(invocation.parsed.name(), "/models");
+                assert_eq!(invocation.parsed.name(), "/model");
                 assert_eq!(invocation.registered.id, CommandId::Model);
             }
             other => panic!("unexpected dispatch result: {other:?}"),

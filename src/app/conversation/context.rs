@@ -4,6 +4,7 @@ use crate::llm::ConversationTurn;
 impl App {
     pub(crate) fn conversation_context(&self) -> Vec<ConversationTurn> {
         let mut turns = self
+            .session
             .history
             .iter()
             .rev()
@@ -25,14 +26,14 @@ impl App {
     }
 
     pub(crate) fn trim_history(&mut self) {
-        let overflow = self.history.len().saturating_sub(MAX_STORED_TURNS);
+        let overflow = self.session.history.len().saturating_sub(MAX_STORED_TURNS);
         if overflow > 0 {
-            self.history.drain(0..overflow);
+            self.session.history.drain(0..overflow);
         }
     }
 
     pub fn include_latest_history_entry(&mut self, include: bool) -> Option<String> {
-        let message = self.history.iter_mut().rev().find(|message| {
+        let message = self.session.history.iter_mut().rev().find(|message| {
             message.model_name != "ollama-me"
                 && !message.in_progress
                 && !message.failed
@@ -45,7 +46,7 @@ impl App {
 
     pub fn clear_context_memory(&mut self) -> usize {
         let mut cleared = 0;
-        for message in self.history.iter_mut().filter(|message| {
+        for message in self.session.history.iter_mut().filter(|message| {
             message.include_in_context && message.model_name != "ollama-me" && !message.in_progress
         }) {
             message.include_in_context = false;

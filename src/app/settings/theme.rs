@@ -36,24 +36,24 @@ impl UiTheme {
 
 impl App {
     pub fn theme_name(&self) -> &'static str {
-        self.theme.label()
+        self.ui.theme.label()
     }
 
     pub fn theme_report(&self) -> String {
         format!(
             "Theme: {}\nAvailable themes: dark, light, mono.",
-            self.theme.label()
+            self.ui.theme.label()
         )
     }
 
     pub fn set_theme(&mut self, requested: Option<&str>) -> Result<String, String> {
-        self.theme = match requested.map(str::to_ascii_lowercase).as_deref() {
-            None | Some("next") => self.theme.next(),
-            Some("show") | Some("status") => self.theme,
+        self.ui.theme = match requested.map(str::to_ascii_lowercase).as_deref() {
+            None | Some("next") => self.ui.theme.next(),
+            Some("show") | Some("status") => self.ui.theme,
             Some(value) => UiTheme::parse(value)
                 .ok_or_else(|| "Usage: /theme [dark|light|mono|next|status]".to_string())?,
         };
 
-        Ok(format!("Theme set to {}.", self.theme.label()))
+        Ok(format!("Theme set to {}.", self.ui.theme.label()))
     }
 }

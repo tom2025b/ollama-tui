@@ -23,7 +23,7 @@ impl App {
 
         let route = self.route_prompt(&prompt);
         let context = self.conversation_context();
-        let prompt_for_model = self.rules.prompt_with_rules(&prompt);
+        let prompt_for_model = self.prompt_for_model(&prompt);
         let model_name = route.model.display_label();
         let route_reason = if let Some(rules_summary) = self.rules.application_summary() {
             format!("{} {}", route.reason, rules_summary)
@@ -82,5 +82,17 @@ impl App {
         }
 
         self.routing.router.route(prompt)
+    }
+
+    fn prompt_for_model(&self, prompt: &str) -> String {
+        let prompt_with_rules = self.rules.prompt_with_rules(prompt);
+
+        match &self.system_prompt {
+            Some(system_prompt) if !system_prompt.trim().is_empty() => format!(
+                "{system_prompt}\n\n{}",
+                prompt_with_rules
+            ),
+            _ => prompt_with_rules,
+        }
     }
 }

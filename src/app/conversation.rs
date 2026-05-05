@@ -44,18 +44,16 @@ impl App {
 
     /// Advance lightweight UI activity while a request is in progress.
     pub fn tick(&mut self) {
-        if !self.session.waiting_for_model {
-            return;
+        if self.session.waiting_for_model {
+            self.session.activity_tick = self.session.activity_tick.wrapping_add(1);
+            let spinner = SPINNER_FRAMES[self.session.activity_tick % SPINNER_FRAMES.len()];
+            let model_name = self
+                .session
+                .active_model_name
+                .as_deref()
+                .unwrap_or("the selected model");
+            self.ui.status = format!("{spinner} Streaming from {model_name}...");
         }
-
-        self.session.activity_tick = self.session.activity_tick.wrapping_add(1);
-        let spinner = SPINNER_FRAMES[self.session.activity_tick % SPINNER_FRAMES.len()];
-        let model_name = self
-            .session
-            .active_model_name
-            .as_deref()
-            .unwrap_or("the selected model");
-        self.ui.status = format!("{spinner} Streaming from {model_name}...");
     }
 
     /// Return the model currently in use, or the most recent model if idle.

@@ -82,4 +82,5 @@ pub fn draw(frame: &mut Frame, app: &App) {
     if app.ui.show_help {
         draw_help(frame, frame_area, app);
     }
+
 }

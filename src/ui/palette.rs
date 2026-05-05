@@ -65,12 +65,13 @@ pub(super) fn draw_command_palette(
             };
             let padding = " ".repeat(command_width.saturating_sub(suggestion.name.len()) + 2);
 
-            ListItem::new(Line::from(vec![
+            let mut lines = vec![Line::from(vec![
                 Span::styled(format!(" {}", suggestion.name), command_style),
                 Span::styled(padding, row_style),
                 Span::styled(format!("{} ", suggestion.hint), hint_style),
-            ]))
-            .style(row_style)
+            ])];
+
+            ListItem::new(lines).style(row_style)
         })
         .collect();
 

@@ -63,6 +63,9 @@ pub trait CommandContext {
     fn history_entries(&self) -> Vec<HistoryEntry<'_>>;
     fn include_latest_history_entry(&mut self, include: bool) -> Option<String>;
     fn clear_context_memory(&mut self) -> usize;
+    fn codex_mode_enabled(&self) -> bool;
+    fn set_codex_mode(&mut self, enabled: bool);
+    fn best_coding_model(&self) -> Option<crate::llm::LanguageModel>;
     fn setting_report(&self, setting: Setting) -> String;
     fn set_setting(&mut self, setting: SettingEdit<'_>) -> Result<String, String>;
     fn open_help_overlay(&mut self);

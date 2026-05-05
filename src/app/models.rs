@@ -1,5 +1,6 @@
 use super::App;
 use crate::llm::LanguageModel;
+use crate::llm::Provider;
 use crate::router::Router;
 
 impl App {
@@ -106,5 +107,43 @@ impl App {
         }
 
         self.ui.show_models_picker = false;
+    }
+
+    pub fn set_codex_mode(&mut self, enabled: bool) {
+        if enabled {
+            self.system_prompt = Some(
+                "You are Codex mode. Be precise, code-first, and optimize for implementation details."
+                    .to_string(),
+            );
+            if let Some(model) = self.best_coding_model() {
+                self.routing.pinned_model = Some(model);
+            }
+            self.ui.status = "Codex mode enabled.".to_string();
+        } else {
+            self.system_prompt = None;
+            self.routing.pinned_model = None;
+            self.ui.status = "Codex mode disabled.".to_string();
+        }
+    }
+
+    pub fn codex_mode_enabled(&self) -> bool {
+        self.system_prompt.is_some()
+    }
+
+    pub fn best_coding_model(&self) -> Option<LanguageModel> {
+        self.models()
+            .iter()
+            .find(|model| model.enabled && model.provider == Provider::Anthropic)
+            .or_else(|| {
+                self.models()
+                    .iter()
+                    .find(|model| model.enabled && model.provider == Provider::OpenAi)
+            })
+            .or_else(|| {
+                self.models()
+                    .iter()
+                    .find(|model| model.enabled && model.provider == Provider::Xai)
+            })
+            .cloned()
     }
 }

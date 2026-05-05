@@ -19,6 +19,7 @@ pub struct App {
     pub(crate) should_quit: bool,
 
     pub(super) rules: RulesState,
+    pub(super) system_prompt: Option<String>,
 }
 
 impl App {
@@ -31,6 +32,7 @@ impl App {
             ui: UiState::new(),
             should_quit: false,
             rules: RulesState::load(),
+            system_prompt: None,
         }
     }
 }

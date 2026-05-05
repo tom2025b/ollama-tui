@@ -6,6 +6,26 @@ use definitions::COMMAND_GROUPS;
 use types::CommandDefinition;
 pub use types::{CommandHelp, CommandId, CommandSuggestion, RegisteredCommand};
 
+macro_rules! register_commands {
+    ($($variant:ident, $name:literal, $handler:path, $help:literal;)*) => {
+        pub(super) const COMMANDS: &[types::CommandSpec] = &[
+            $(
+                types::CommandSpec {
+                    id: CommandId::$variant,
+                    display_name: $name,
+                    hint: $help,
+                    detail: $help,
+                    names: &[CommandName {
+                        name: $name,
+                        visible: true,
+                    }],
+                    executor: $handler,
+                },
+            )*
+        ];
+    };
+}
+
 /// Registry for all slash-command names, aliases, help text, and handlers.
 #[derive(Clone, Copy, Debug)]
 pub struct CommandRegistry {

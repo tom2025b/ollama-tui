@@ -13,7 +13,29 @@ pub(super) const COMMANDS: &[CommandDefinition] = &[
             name: "/clear",
             visible: true,
         }],
-        executor: handlers::session::clear_conversation_command,
+        executor: handlers::clear::handle_clear_command,
+    },
+    CommandDefinition {
+        id: CommandId::Codex,
+        display_name: "/codex",
+        hint: "Toggle Codex mode",
+        detail: "Toggle a persistent coding system prompt and pin the best coding-capable backend.",
+        names: &[CommandName {
+            name: "/codex",
+            visible: true,
+        }],
+        executor: handlers::codex::handle_codex_command,
+    },
+    CommandDefinition {
+        id: CommandId::Explain,
+        display_name: "/explain",
+        hint: "Explain last code block",
+        detail: "Explain the last code block in simple terms.",
+        names: &[CommandName {
+            name: "/explain",
+            visible: true,
+        }],
+        executor: handlers::explain::handle_explain_command,
     },
     CommandDefinition {
         id: CommandId::Model,
@@ -80,6 +102,28 @@ pub(super) const COMMANDS: &[CommandDefinition] = &[
             visible: true,
         }],
         executor: handlers::history::handle_history_command,
+    },
+    CommandDefinition {
+        id: CommandId::Fix,
+        display_name: "/fix",
+        hint: "Fix last message",
+        detail: "Ask the model to fix any obvious bugs in the last message.",
+        names: &[CommandName {
+            name: "/fix",
+            visible: true,
+        }],
+        executor: handlers::fix::handle_fix_command,
+    },
+    CommandDefinition {
+        id: CommandId::Review,
+        display_name: "/review",
+        hint: "Review last code block",
+        detail: "Analyze the most recent fenced code block from the conversation.",
+        names: &[CommandName {
+            name: "/review",
+            visible: true,
+        }],
+        executor: handlers::review::handle_review_command,
     },
     CommandDefinition {
         id: CommandId::Quit,

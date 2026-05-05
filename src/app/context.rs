@@ -98,6 +98,18 @@ impl CommandContext for App {
         App::clear_context_memory(self)
     }
 
+    fn codex_mode_enabled(&self) -> bool {
+        App::codex_mode_enabled(self)
+    }
+
+    fn set_codex_mode(&mut self, enabled: bool) {
+        App::set_codex_mode(self, enabled)
+    }
+
+    fn best_coding_model(&self) -> Option<LanguageModel> {
+        App::best_coding_model(self)
+    }
+
     fn setting_report(&self, setting: Setting) -> String {
         App::setting_report(self, setting)
     }

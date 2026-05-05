@@ -7,6 +7,8 @@ pub enum CommandId {
     Backend,
     Bookmark,
     Clear,
+    Codex,
+    Explain,
     Context,
     Cost,
     Export,
@@ -15,6 +17,8 @@ pub enum CommandId {
     Memory,
     Model,
     Quit,
+    Fix,
+    Review,
     Resize,
     Rules,
     Summary,
@@ -27,6 +31,7 @@ pub enum CommandId {
 pub struct CommandSuggestion {
     pub name: &'static str,
     pub hint: &'static str,
+    pub detail: &'static str,
 }
 
 /// One command row shown by the help overlay and unknown-command fallback.
@@ -63,6 +68,8 @@ pub(super) struct CommandDefinition {
     pub(super) executor: CommandExecutor,
 }
 
+pub(super) type CommandSpec = CommandDefinition;
+
 impl CommandDefinition {
     pub(super) fn registered_command(&self) -> RegisteredCommand {
         RegisteredCommand {
@@ -83,6 +90,7 @@ impl CommandDefinition {
         CommandSuggestion {
             name: self.display_name,
             hint: self.hint,
+            detail: self.detail,
         }
     }
 }

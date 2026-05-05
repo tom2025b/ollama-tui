@@ -8,6 +8,10 @@ pub(super) struct CommandState {
     external_actions: VecDeque<ExternalAction>,
     pub(super) suggestion_index: usize,
     pub(super) suggestions_dismissed: bool,
+
+    /// Prompt that a slash command produced for the next model turn, if any.
+    /// Drained by `submit_prompt` so commands like /fix actually reach a model.
+    staged_prompt: Option<String>,
 }
 
 impl CommandState {
@@ -17,6 +21,7 @@ impl CommandState {
             external_actions: VecDeque::new(),
             suggestion_index: 0,
             suggestions_dismissed: false,
+            staged_prompt: None,
         }
     }
 
@@ -35,5 +40,13 @@ impl CommandState {
 
     pub(super) fn take_external_action(&mut self) -> Option<ExternalAction> {
         self.external_actions.pop_front()
+    }
+
+    pub(super) fn stage_prompt(&mut self, prompt: String) {
+        self.staged_prompt = Some(prompt);
+    }
+
+    pub(super) fn take_staged_prompt(&mut self) -> Option<String> {
+        self.staged_prompt.take()
     }
 }

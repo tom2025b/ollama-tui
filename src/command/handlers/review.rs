@@ -1,67 +1,42 @@
 use crate::command::parser::ParsedCommand;
 
+use super::code_block::last_code_block;
 use super::session::CommandContext;
 
 pub fn handle_review_command(context: &mut dyn CommandContext, command: &ParsedCommand) {
-    match last_code_block(context) {
-        Some(code_block) => {
-            context.append_local_message(command.raw(), review_report(&code_block));
-            context.set_status("Reviewed the last code block.".to_string());
-        }
-        None => {
-            context.append_local_message(
-                command.raw(),
-                "No fenced code block was found in the recent conversation.".to_string(),
-            );
-            context.set_status("No code block to review.".to_string());
-        }
-    }
+    let Some(code_block) = last_code_block(context) else {
+        context.append_local_message(
+            command.raw(),
+            "No fenced code block was found in the recent conversation. \
+             Paste code into a prompt first, then run /review again."
+                .to_string(),
+        );
+        context.set_status("No code block to review.".to_string());
+        return;
+    };
+
+    context.stage_prompt_for_model(review_prompt(&code_block));
+    context.set_status(
+        "Asking the model to review the last code block...".to_string(),
+    );
 }
 
-fn last_code_block(context: &dyn CommandContext) -> Option<String> {
-    let mut history = context.history_entries();
-    history.reverse();
-
-    for entry in history {
-        if let Some(block) = extract_last_fenced_code_block(entry.answer) {
-            return Some(block);
-        }
-        if let Some(block) = extract_last_fenced_code_block(entry.prompt) {
-            return Some(block);
-        }
-    }
-
-    None
-}
-
-fn extract_last_fenced_code_block(text: &str) -> Option<String> {
-    let mut last_block = None;
-    let mut in_block = false;
-    let mut current = Vec::new();
-
-    for line in text.lines() {
-        if line.trim_start().starts_with("```") {
-            if in_block {
-                last_block = Some(current.join("\n"));
-                current.clear();
-            }
-            in_block = !in_block;
-            continue;
-        }
-
-        if in_block {
-            current.push(line.to_string());
-        }
-    }
-
-    last_block
-}
-
-fn review_report(code_block: &str) -> String {
-    let line_count = code_block.lines().count();
-    let non_empty_lines = code_block.lines().filter(|line| !line.trim().is_empty()).count();
-
+fn review_prompt(code_block: &str) -> String {
     format!(
-        "Last code block review\nLines: {line_count}\nNon-empty lines: {non_empty_lines}\n\n{code_block}"
+        "Review the following code as a senior engineer doing a brutal-but-fair code review.\n\
+         \n\
+         Call out, with specifics:\n\
+         - Bugs, off-by-one errors, missing error handling, and broken edge cases.\n\
+         - Security or safety issues (injection, unsafe defaults, leaked secrets, panics).\n\
+         - Performance pitfalls (allocations in hot paths, accidental quadratic work).\n\
+         - Readability, naming, and structural problems worth fixing.\n\
+         \n\
+         Quote the offending line or expression when you flag something. Be concrete\n\
+         and actionable. If the code is genuinely fine, say so and explain why instead\n\
+         of inventing concerns.\n\
+         \n\
+         ```\n\
+         {code_block}\n\
+         ```"
     )
 }

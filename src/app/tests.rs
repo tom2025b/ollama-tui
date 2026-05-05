@@ -1,3 +1,4 @@
+mod code_commands;
 mod commands;
 mod conversation;
 mod new_commands;

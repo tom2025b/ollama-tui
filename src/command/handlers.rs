@@ -1,5 +1,6 @@
 pub mod backends;
 pub mod clear;
+pub mod code_block;
 pub mod codex;
 pub mod explain;
 pub mod context_memory;

@@ -30,7 +30,7 @@ pub(super) const COMMANDS: &[CommandDefinition] = &[
         id: CommandId::Explain,
         display_name: "/explain",
         hint: "Explain last code block",
-        detail: "Explain the last code block in simple terms.",
+        detail: "Ask the active model to walk through the most recent fenced code block.",
         names: &[CommandName {
             name: "/explain",
             visible: true,
@@ -106,8 +106,9 @@ pub(super) const COMMANDS: &[CommandDefinition] = &[
     CommandDefinition {
         id: CommandId::Fix,
         display_name: "/fix",
-        hint: "Fix last message",
-        detail: "Ask the model to fix any obvious bugs in the last message.",
+        hint: "Fix bugs in last code or message",
+        detail: "Ask the active model to find and fix bugs in the last code block, \
+                 falling back to the last assistant message.",
         names: &[CommandName {
             name: "/fix",
             visible: true,
@@ -118,7 +119,8 @@ pub(super) const COMMANDS: &[CommandDefinition] = &[
         id: CommandId::Review,
         display_name: "/review",
         hint: "Review last code block",
-        detail: "Analyze the most recent fenced code block from the conversation.",
+        detail: "Ask the active model for a brutal-but-fair review of the most recent \
+                 fenced code block.",
         names: &[CommandName {
             name: "/review",
             visible: true,

@@ -26,6 +26,12 @@ pub(crate) fn append_utf8_chunk(
         Err(error) if error.error_len().is_none() => {
             let valid_up_to = error.valid_up_to();
             if valid_up_to > 0 {
+                // SAFETY: `Utf8Error::valid_up_to` is documented to return the
+                // number of leading bytes that form valid UTF-8, so slicing
+                // `pending` at that boundary always yields a valid UTF-8
+                // prefix. The `expect` only fires if the standard library
+                // contract is violated, which is a programmer error in `std`,
+                // not a runtime condition we should try to recover from.
                 let decoded = std::str::from_utf8(&pending[..valid_up_to])
                     .expect("valid_up_to marks a valid UTF-8 prefix");
                 output.push_str(decoded);

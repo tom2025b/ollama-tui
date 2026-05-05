@@ -71,4 +71,11 @@ pub trait CommandContext {
     fn open_help_overlay(&mut self);
     fn set_status(&mut self, status: String);
     fn quit(&mut self);
+
+    /// Stage a follow-up prompt for the next model turn.
+    ///
+    /// Slash commands like `/fix`, `/explain`, and `/review` use this to hand a
+    /// freshly-built prompt back to the submission flow so it actually reaches
+    /// the model instead of just being printed as a local message.
+    fn stage_prompt_for_model(&mut self, prompt: String);
 }

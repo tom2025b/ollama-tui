@@ -130,4 +130,15 @@ impl CommandContext for App {
     fn quit(&mut self) {
         App::quit(self);
     }
+
+    fn stage_prompt_for_model(&mut self, prompt: String) {
+        self.commands.stage_prompt(prompt);
+    }
+}
+
+impl App {
+    /// Drain a prompt staged by the most recent slash command, if any.
+    pub(crate) fn take_staged_command_prompt(&mut self) -> Option<String> {
+        self.commands.take_staged_prompt()
+    }
 }

@@ -47,6 +47,12 @@ impl ModelRouter {
     }
 
     pub(super) fn primary_ollama_model(&self) -> LanguageModel {
+        // SAFETY: `ModelRouter::new` (see `router/catalog.rs`) unconditionally pushes
+        // an Ollama model with `name == PRIMARY_OLLAMA_MODEL` as the first entry of
+        // `self.models`, and no public API mutates that vector. The `expect` below
+        // therefore relies on a construction-time invariant: if it ever fires, the
+        // router was built without the primary Ollama entry, which is a programmer
+        // error, not a runtime condition.
         self.models
             .iter()
             .find(|model| model.provider == Provider::Ollama && model.name == PRIMARY_OLLAMA_MODEL)

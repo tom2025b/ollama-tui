@@ -12,9 +12,17 @@ impl App {
             return None;
         }
 
-        if self.try_execute_command(&prompt) {
-            return None;
-        }
+        // Slash commands may stage a follow-up prompt (e.g. /fix, /explain,
+        // /review). When they do, fall through and treat that staged prompt as
+        // the user's real submission so the model actually sees it.
+        let prompt = if self.try_execute_command(&prompt) {
+            match self.take_staged_command_prompt() {
+                Some(staged) => staged,
+                None => return None,
+            }
+        } else {
+            prompt
+        };
 
         if self.session.waiting_for_model {
             self.ui.status = "A model is already answering. Wait for it to finish.".to_string();

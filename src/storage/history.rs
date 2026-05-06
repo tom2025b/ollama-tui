@@ -31,7 +31,6 @@ pub fn save_report(
     let mut file = File::create(&path)?;
     file.write_all(wrapped.as_bytes())?;
 
-    println!("Exported history to {}", path.display());
     Ok(path)
 }
 

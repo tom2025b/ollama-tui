@@ -1,29 +1,22 @@
+use crate::subcommands::tui::app::App;
 use crate::subcommands::tui::slash_commands::parser::ParsedCommand;
 
 use super::code_block::last_code_block;
-use super::session::{CommandContext, CommandOutput, HistoryView, PromptStaging};
 
-pub fn handle_explain_command<C>(context: &mut C, command: &ParsedCommand)
-where
-    C: CommandOutput + HistoryView + PromptStaging + ?Sized,
-{
-    let Some(code_block) = last_code_block(context) else {
-        context.append_local_message(
+pub fn explain_command(app: &mut App, command: &ParsedCommand) {
+    let Some(code_block) = last_code_block(app) else {
+        app.append_local_message(
             command.raw(),
             "No fenced code block was found in the recent conversation. \
              Paste some code into a prompt first, then run /explain again."
                 .to_string(),
         );
-        context.set_status("No code block to explain.".to_string());
+        app.ui.status = "No code block to explain.".to_string();
         return;
     };
 
-    context.stage_prompt_for_model(explain_prompt(&code_block));
-    context.set_status("Asking the model to explain the last code block...".to_string());
-}
-
-pub fn execute_explain_command(context: &mut dyn CommandContext, command: &ParsedCommand) {
-    handle_explain_command(context, command);
+    app.commands.stage_prompt(explain_prompt(&code_block));
+    app.ui.status = "Asking the model to explain the last code block...".to_string();
 }
 
 fn explain_prompt(code_block: &str) -> String {

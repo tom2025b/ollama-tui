@@ -120,10 +120,12 @@ mod tests {
     }
 
     #[test]
-    fn with_builtins_starts_empty_until_tools_are_added() {
+    fn with_builtins_registers_public_tools() {
         let registry = ToolRegistry::with_builtins().expect("built-in registration should succeed");
 
-        assert!(registry.is_empty());
+        assert_eq!(registry.len(), 2);
+        assert!(registry.contains("utc_timestamp"));
+        assert!(registry.contains("build_info"));
     }
 
     #[test]

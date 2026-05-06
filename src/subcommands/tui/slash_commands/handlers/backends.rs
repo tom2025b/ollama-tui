@@ -1,25 +1,15 @@
 use crate::llm::Provider;
+use crate::subcommands::tui::app::App;
 
-use super::session::{CommandContext, CommandOutput, ModelCatalog};
 use crate::subcommands::tui::slash_commands::parser::ParsedCommand;
 
-pub fn handle_backends_command<C>(context: &mut C, command: &ParsedCommand)
-where
-    C: CommandOutput + ModelCatalog + ?Sized,
-{
-    let report = backends_report(context);
-    context.append_local_message(command.raw(), report);
-    context.set_status("Listed backend status.".to_string());
+pub fn backends_command(app: &mut App, command: &ParsedCommand) {
+    let report = backends_report(app);
+    app.append_local_message(command.raw(), report);
+    app.ui.status = "Listed backend status.".to_string();
 }
 
-pub fn execute_backends_command(context: &mut dyn CommandContext, command: &ParsedCommand) {
-    handle_backends_command(context, command);
-}
-
-fn backends_report<C>(context: &C) -> String
-where
-    C: ModelCatalog + ?Sized,
-{
+fn backends_report(app: &App) -> String {
     [
         Provider::Ollama,
         Provider::Anthropic,
@@ -28,7 +18,7 @@ where
     ]
     .iter()
     .map(|provider| {
-        let models = context
+        let models = app
             .models()
             .iter()
             .filter(|model| model.provider == *provider)

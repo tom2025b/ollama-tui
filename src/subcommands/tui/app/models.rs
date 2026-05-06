@@ -36,8 +36,22 @@ impl App {
     /// True when the given model is the one currently pinned.
     pub fn is_pinned(&self, model: &LanguageModel) -> bool {
         match &self.routing.pinned_model {
-            Some(pinned) => pinned.provider == model.provider && pinned.name == model.name,
+            Some(pinned) => same_model(pinned, model),
             None => false,
+        }
+    }
+
+    /// True when new prompts bypass automatic routing.
+    pub fn has_pinned_model(&self) -> bool {
+        self.routing.pinned_model.is_some()
+    }
+
+    /// Label for the current routing mode.
+    pub fn routing_mode_label(&self) -> &'static str {
+        if self.has_pinned_model() {
+            "PINNED"
+        } else {
+            "AUTO ROUTER"
         }
     }
 
@@ -50,7 +64,7 @@ impl App {
             Some(pinned) => self
                 .pickable_models()
                 .iter()
-                .position(|model| model.provider == pinned.provider && model.name == pinned.name)
+                .position(|model| same_model(model, pinned))
                 .map(|i| i + 1)
                 .unwrap_or(0),
         };
@@ -107,4 +121,8 @@ impl App {
 
         self.ui.show_models_picker = false;
     }
+}
+
+fn same_model(left: &LanguageModel, right: &LanguageModel) -> bool {
+    left.provider == right.provider && left.name == right.name
 }

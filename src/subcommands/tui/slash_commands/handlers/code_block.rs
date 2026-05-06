@@ -1,18 +1,15 @@
-use super::session::HistoryView;
+use crate::subcommands::tui::app::App;
 
 /// Most recent fenced code block from the visible history, walking newest first.
 ///
 /// Both assistant answers and user prompts are scanned, since users frequently
 /// paste code into prompts and ask the model to react to it.
-pub fn last_code_block<C>(context: &C) -> Option<String>
-where
-    C: HistoryView + ?Sized,
-{
-    for entry in context.history_entries().into_iter().rev() {
-        if let Some(block) = extract_last_fenced_code_block(entry.answer) {
+pub fn last_code_block(app: &App) -> Option<String> {
+    for entry in app.session.history.iter().rev() {
+        if let Some(block) = extract_last_fenced_code_block(&entry.answer) {
             return Some(block);
         }
-        if let Some(block) = extract_last_fenced_code_block(entry.prompt) {
+        if let Some(block) = extract_last_fenced_code_block(&entry.prompt) {
             return Some(block);
         }
     }
@@ -24,16 +21,13 @@ where
 ///
 /// In-progress and failed turns are skipped so /fix never asks the model to
 /// reason about a half-written or error-tagged response.
-pub fn last_assistant_message<C>(context: &C) -> Option<String>
-where
-    C: HistoryView + ?Sized,
-{
-    context
-        .history_entries()
-        .into_iter()
+pub fn last_assistant_message(app: &App) -> Option<String> {
+    app.session
+        .history
+        .iter()
         .rev()
         .find(|entry| !entry.in_progress && !entry.failed && !entry.answer.trim().is_empty())
-        .map(|entry| entry.answer.to_string())
+        .map(|entry| entry.answer.clone())
 }
 
 fn extract_last_fenced_code_block(text: &str) -> Option<String> {

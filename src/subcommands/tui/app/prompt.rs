@@ -1,7 +1,7 @@
 use super::{App, ChatMessage, PendingRequest};
 use crate::llm::RouteDecision;
 use crate::routing::Router;
-use crate::subcommands::tui::slash_commands::{self, ParseResult};
+use crate::subcommands::tui::slash_commands::{self, ParseResult, handlers};
 
 impl App {
     /// Try to submit the current prompt.
@@ -17,7 +17,7 @@ impl App {
         // /review). When they do, fall through and treat that staged prompt as
         // the user's real submission so the model actually sees it.
         let prompt = if self.try_execute_command(&prompt) {
-            self.take_staged_command_prompt()?
+            self.commands.take_staged_prompt()?
         } else {
             prompt
         };
@@ -69,9 +69,13 @@ impl App {
         };
 
         self.session.input.clear();
-        let dispatch = self.commands.command_dispatcher.dispatch(command);
-        let available_commands = self.commands.command_dispatcher.available_commands();
-        slash_commands::execute_dispatch(self, dispatch, &available_commands);
+        match self.commands.registry.resolve(&command) {
+            Some(execute) => execute(self, &command),
+            None => {
+                let available_commands = self.commands.registry.available_commands();
+                handlers::session::unknown_command(self, &command, &available_commands);
+            }
+        }
         true
     }
 

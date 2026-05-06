@@ -4,10 +4,10 @@ use anyhow::Result;
 use crossterm::event::{self, Event};
 use tokio::sync::mpsc;
 
-use crate::app::{App, ModelEvent};
-use crate::external::run_external_action;
-use crate::keys::handle_key_event;
-use crate::terminal::{AppTerminal, start_terminal, stop_terminal};
+use crate::subcommands::tui::app::{App, ModelEvent};
+use crate::subcommands::tui::external::run_external_action;
+use crate::subcommands::tui::input::handle_key_event;
+use crate::subcommands::tui::terminal::{AppTerminal, start_terminal, stop_terminal};
 
 /// Start the terminal app.
 ///
@@ -32,7 +32,7 @@ async fn run_app(terminal: &mut AppTerminal) -> Result<()> {
         }
 
         app.tick();
-        terminal.draw(|frame| crate::ui::draw(frame, &app))?;
+        terminal.draw(|frame| crate::subcommands::tui::ui::draw(frame, &app))?;
 
         if event::poll(Duration::from_millis(50))?
             && let Event::Key(key_event) = event::read()?

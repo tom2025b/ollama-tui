@@ -1,14 +1,9 @@
 use anyhow::Result;
 
-use crate::{
-    extensions::ExtensionRegistry,
-    tools::{registry::ToolRegistry, spec::ToolDefinition},
-};
+use crate::tools::{registry::ToolRegistry, spec::ToolDefinition};
 
 pub(super) fn public_tool_registry() -> Result<ToolRegistry> {
-    let mut tools = ToolRegistry::with_builtins()?;
-    ExtensionRegistry::public().register_tools(&mut tools)?;
-    Ok(tools)
+    Ok(ToolRegistry::with_builtins()?)
 }
 
 pub(super) fn sorted_tool_definitions(tools: &ToolRegistry) -> Vec<ToolDefinition> {

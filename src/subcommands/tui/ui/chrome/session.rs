@@ -95,10 +95,29 @@ fn metric_line(app: &App, label: &'static str, value: String, value_style: Style
 }
 
 fn context_turn_count(app: &App) -> usize {
-    app.session
-        .history
-        .iter()
-        .filter(|message| message.include_in_context)
-        .count()
-        .min(MAX_CONTEXT_TURNS)
+    app.conversation_context().len()
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+    use crate::subcommands::tui::app::ChatMessage;
+
+    #[test]
+    fn context_turn_count_uses_effective_context() {
+        let mut app = App::new();
+        app.memory
+            .remember_turn("prompt", "answer")
+            .expect("memory should save");
+        let mut message = ChatMessage::streaming_model_turn(
+            "prompt".to_string(),
+            "Ollama llama3".to_string(),
+            "test route".to_string(),
+        );
+        message.append_token("answer");
+        message.finish_streaming();
+        app.session.history.push(message);
+
+        assert_eq!(context_turn_count(&app), 1);
+    }
 }

@@ -16,27 +16,15 @@ pub fn start_terminal() -> Result<AppTerminal> {
     let mut stdout = io::stdout();
     execute!(stdout, EnterAlternateScreen)?;
 
-    let backend = CrosstermBackend::new(stdout);
-    let terminal = Terminal::new(backend)?;
-
-    Ok(terminal)
+    Ok(Terminal::new(CrosstermBackend::new(stdout))?)
 }
 
-/// Restore the terminal before exiting.
+/// Restore the normal terminal. Used both for shutdown and for suspending while
+/// an external command runs in the foreground.
 pub fn stop_terminal(terminal: &mut AppTerminal) -> Result<()> {
     disable_raw_mode()?;
     execute!(terminal.backend_mut(), LeaveAlternateScreen)?;
     terminal.show_cursor()?;
-
-    Ok(())
-}
-
-/// Temporarily restore the normal terminal before launching an external tool.
-pub fn suspend_terminal(terminal: &mut AppTerminal) -> Result<()> {
-    disable_raw_mode()?;
-    execute!(terminal.backend_mut(), LeaveAlternateScreen)?;
-    terminal.show_cursor()?;
-
     Ok(())
 }
 
@@ -45,6 +33,5 @@ pub fn resume_terminal(terminal: &mut AppTerminal) -> Result<()> {
     enable_raw_mode()?;
     execute!(terminal.backend_mut(), EnterAlternateScreen)?;
     terminal.clear()?;
-
     Ok(())
 }

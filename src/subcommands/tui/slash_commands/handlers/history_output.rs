@@ -1,10 +1,10 @@
 use std::collections::BTreeSet;
 use std::fmt::Write as _;
 
-use crate::subcommands::tui::app::{App, ChatMessage};
+use crate::subcommands::tui::app::App;
 use crate::subcommands::tui::slash_commands::parser::ParsedCommand;
 
-use super::history::history_report;
+use super::{history::history_report, preview};
 
 pub fn summary_command(app: &mut App, command: &ParsedCommand) {
     app.append_local_message(command.raw(), summary_report(app));
@@ -35,17 +35,17 @@ fn summary_report(app: &App) -> String {
         .session
         .history
         .iter()
-        .filter(|entry| is_model_turn(entry))
+        .filter(|entry| entry.is_model_turn())
         .collect::<Vec<_>>();
     let completed = model_turns
         .iter()
-        .filter(|entry| !entry.in_progress && !entry.failed)
+        .filter(|entry| entry.is_finished_model_turn())
         .count();
     let failed = model_turns.iter().filter(|entry| entry.failed).count();
     let streaming = model_turns.iter().filter(|entry| entry.in_progress).count();
     let remembered = model_turns
         .iter()
-        .filter(|entry| entry.include_in_context)
+        .filter(|entry| entry.is_ready_for_context())
         .count();
     let models: BTreeSet<&str> = model_turns
         .iter()
@@ -72,18 +72,5 @@ fn join_models(models: &BTreeSet<&str>) -> String {
         "none".to_string()
     } else {
         models.iter().copied().collect::<Vec<_>>().join(", ")
-    }
-}
-
-fn is_model_turn(entry: &ChatMessage) -> bool {
-    !entry.is_local_message
-}
-
-fn preview(text: &str) -> String {
-    let preview = text.chars().take(80).collect::<String>();
-    if text.chars().count() > 80 {
-        format!("{preview}...")
-    } else {
-        preview
     }
 }

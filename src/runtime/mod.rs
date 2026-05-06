@@ -1,5 +1,4 @@
 mod config;
-mod environment;
 mod paths;
 
 #[cfg(test)]
@@ -9,8 +8,6 @@ pub(crate) use config::{
 pub(crate) use config::{ModelRuntimeConfig, RuntimeConfig};
 pub(crate) use paths::RuntimePaths;
 
-use environment::{ProcessEnvironment, RuntimeEnvironment};
-
 #[derive(Clone, Debug)]
 pub(crate) struct Runtime {
     config: RuntimeConfig,
@@ -19,7 +16,10 @@ pub(crate) struct Runtime {
 
 impl Runtime {
     pub(crate) fn load() -> Self {
-        Self::from_environment(&ProcessEnvironment)
+        Self {
+            config: RuntimeConfig::from_environment(),
+            paths: RuntimePaths::from_environment(),
+        }
     }
 
     #[cfg(test)]
@@ -35,7 +35,7 @@ impl Runtime {
         ));
 
         Self {
-            config: RuntimeConfig::from_environment(&ProcessEnvironment),
+            config: RuntimeConfig::from_environment(),
             paths: RuntimePaths::from_parts(std::env::temp_dir(), base.clone(), Some(base)),
         }
     }
@@ -46,15 +46,5 @@ impl Runtime {
 
     pub(crate) fn paths(&self) -> &RuntimePaths {
         &self.paths
-    }
-
-    fn from_environment<E>(environment: &E) -> Self
-    where
-        E: RuntimeEnvironment + ?Sized,
-    {
-        Self {
-            config: RuntimeConfig::from_environment(environment),
-            paths: RuntimePaths::from_environment(environment),
-        }
     }
 }

@@ -101,6 +101,34 @@ fn terminal_launch_forwards_prompt_to_action() {
 }
 
 #[test]
+fn terminal_launch_is_not_bookmarked_as_model_output() {
+    let mut app = App::new();
+    let claude = app
+        .pickable_models()
+        .into_iter()
+        .find(|model| model.provider == Provider::ClaudeCode)
+        .expect("Claude Code target is pickable")
+        .clone();
+    app.routing.pinned_model = Some(claude);
+    app.session.input = "debug the allocator".to_string();
+
+    app.submit_prompt();
+
+    let message = app
+        .session
+        .history
+        .last()
+        .expect("terminal launch should be visible");
+    assert!(message.is_local_message);
+    assert!(!message.include_in_context);
+    assert!(
+        app.remember_latest_history_entry()
+            .expect("bookmark lookup should not fail")
+            .is_none()
+    );
+}
+
+#[test]
 fn complex_auto_route_launches_claude_terminal_app() {
     let mut app = App::new();
     app.session.input =

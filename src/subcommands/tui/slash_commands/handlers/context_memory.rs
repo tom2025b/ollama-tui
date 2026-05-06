@@ -1,6 +1,8 @@
 use std::fmt::Write as _;
 
 use crate::subcommands::tui::app::{App, ChatMessage, MAX_CONTEXT_TURNS};
+
+use super::preview;
 use crate::subcommands::tui::slash_commands::parser::ParsedCommand;
 
 const BOOKMARK_USAGE: &str = "Usage: /bookmark [add|remove]";
@@ -132,10 +134,10 @@ fn show_usage(app: &mut App, input: &str, message: &str, status: &str) {
 
 fn context_report(app: &App) -> String {
     let entries = &app.session.history;
-    let model_turns = entries.iter().filter(|entry| is_model_turn(entry)).count();
+    let model_turns = entries.iter().filter(|entry| entry.is_model_turn()).count();
     let remembered = entries
         .iter()
-        .filter(|entry| ready_for_context(entry))
+        .filter(|entry| entry.is_ready_for_context())
         .count();
     let next = app.conversation_context().len();
     let project_memory = app.memory.items().len();
@@ -148,7 +150,11 @@ fn context_report(app: &App) -> String {
     );
     let _ = writeln!(report, "Remembered turns: {remembered}/{model_turns}");
     let _ = writeln!(report, "Project memory items: {project_memory}");
-    if let Some(last) = entries.iter().rev().find(|entry| ready_for_context(entry)) {
+    if let Some(last) = entries
+        .iter()
+        .rev()
+        .find(|entry| entry.is_ready_for_context())
+    {
         let _ = writeln!(report, "Latest remembered: {}", preview(&last.prompt));
     }
     report
@@ -190,7 +196,7 @@ fn token_report(app: &App) -> String {
         .sum();
     let total_tokens: usize = entries
         .iter()
-        .filter(|entry| is_model_turn(entry))
+        .filter(|entry| entry.is_model_turn())
         .map(entry_tokens)
         .sum();
 
@@ -199,27 +205,10 @@ fn token_report(app: &App) -> String {
     )
 }
 
-fn preview(text: &str) -> String {
-    let preview = text.chars().take(80).collect::<String>();
-    if text.chars().count() > 80 {
-        format!("{preview}...")
-    } else {
-        preview
-    }
-}
-
 fn entry_tokens(entry: &ChatMessage) -> usize {
     estimate_tokens(&entry.prompt) + estimate_tokens(&entry.answer)
 }
 
 fn estimate_tokens(text: &str) -> usize {
     text.chars().count().div_ceil(4)
-}
-
-fn ready_for_context(entry: &ChatMessage) -> bool {
-    entry.include_in_context && is_model_turn(entry) && !entry.in_progress && !entry.failed
-}
-
-fn is_model_turn(entry: &ChatMessage) -> bool {
-    !entry.is_local_message
 }

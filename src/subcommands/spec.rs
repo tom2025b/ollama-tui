@@ -7,9 +7,6 @@ pub enum SubcommandId {
 
     /// Run a task on the local AI stack, or show readiness if no task is given.
     Swarm(SwarmArgs),
-
-    /// Run the food planning tool.
-    Food,
 }
 
 /// Arguments for the `swarm` subcommand.

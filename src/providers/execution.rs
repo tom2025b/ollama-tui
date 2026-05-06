@@ -34,27 +34,28 @@ impl ModelRequest {
     }
 }
 
-/// Stream a provider-neutral request through its selected concrete backend.
+/// Stream a model request through Ollama.
+///
+/// `ClaudeCode` and `Codex` are handled outside this path: the TUI suspends and
+/// hands off to the external CLI before reaching the streaming layer, so by the
+/// time we get here the provider is always `Ollama`.
 pub(crate) async fn stream_model_request<F>(request: &ModelRequest, on_token: F) -> Result<String>
 where
     F: FnMut(String),
 {
-    let mut on_token = on_token;
+    debug_assert!(
+        matches!(request.model.provider, Provider::Ollama),
+        "stream_model_request only supports Ollama; terminal apps are intercepted upstream",
+    );
 
-    match &request.model.provider {
-        Provider::Ollama => {
-            ollama::stream(
-                &request.model.name,
-                &request.context,
-                &request.prompt,
-                &mut on_token,
-            )
-            .await
-        }
-        Provider::ClaudeCode | Provider::Codex => unreachable!(
-            "terminal app providers must be intercepted in submit_prompt before streaming"
-        ),
-    }
+    let mut on_token = on_token;
+    ollama::stream(
+        &request.model.name,
+        &request.context,
+        &request.prompt,
+        &mut on_token,
+    )
+    .await
 }
 
 #[cfg(test)]

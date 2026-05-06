@@ -1,5 +1,4 @@
 pub mod bootstrap;
-pub mod extensions;
 pub mod tools;
 
 mod cli;

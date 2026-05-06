@@ -2,6 +2,8 @@ use crate::subcommands::tui::slash_commands::handlers;
 
 use super::types::{CommandDefinition, CommandName};
 
+// Public build only. Private slash commands (`/claude`, `/codex`, `/cost`) must
+// not be added here; their absence is enforced by registry tests.
 pub(super) const COMMAND_GROUPS: &[&[CommandDefinition]] = &[
     CORE_COMMANDS,
     CONTEXT_COMMANDS,

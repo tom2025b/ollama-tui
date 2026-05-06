@@ -49,7 +49,7 @@ pub(super) fn history_report(app: &App) -> String {
         .session
         .history
         .iter()
-        .filter(|message| message.include_in_context)
+        .filter(|message| message.is_model_turn())
         .collect::<Vec<_>>();
     let mut report = String::new();
 

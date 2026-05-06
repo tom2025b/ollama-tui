@@ -38,7 +38,6 @@ where
 }
 
 /// Parse one Ollama streaming JSON line and emit its content delta.
-#[cfg_attr(not(test), allow(dead_code))]
 pub(super) fn process_ollama_stream_line<F>(
     line: &str,
     answer: &mut String,
@@ -69,10 +68,6 @@ where
 struct ChatStreamChunk {
     /// Assistant message delta for this chunk.
     message: Option<OllamaChatResponseMessage>,
-    /// True when Ollama has finished the response.
-    #[serde(default)]
-    #[allow(dead_code)]
-    done: bool,
 }
 
 /// Assistant message object inside a streaming chat chunk.

@@ -1,6 +1,6 @@
 use std::fs;
 
-use super::super::App;
+use super::super::{App, ChatMessage};
 use super::support::completed_message;
 
 #[test]
@@ -24,10 +24,47 @@ fn memory_clear_removes_turns_from_future_context() {
 }
 
 #[test]
+fn memory_clear_does_not_remove_history_report_turns() {
+    let mut app = App::new();
+    app.session.history.push(completed_message(1));
+    app.session.input = "/memory clear".to_string();
+    app.submit_prompt();
+
+    app.session.input = "/history".to_string();
+    let request = app.submit_prompt();
+
+    assert!(request.is_none());
+    let report = &app.session.history.last().expect("history report").answer;
+    assert!(report.contains("## Turn 1"));
+    assert!(report.contains("prompt 1"));
+    assert!(report.contains("answer 1"));
+}
+
+#[test]
+fn context_report_ignores_empty_model_answers() {
+    let mut app = App::new();
+    let mut message = ChatMessage::streaming_model_turn(
+        "prompt".to_string(),
+        "Ollama llama3".to_string(),
+        "test route".to_string(),
+    );
+    message.finish_streaming();
+    app.session.history.push(message);
+    app.session.input = "/context".to_string();
+
+    let request = app.submit_prompt();
+
+    assert!(request.is_none());
+    let report = &app.session.history.last().expect("context report").answer;
+    assert!(report.contains("Context window: 0/6 turn(s)"));
+    assert!(report.contains("Remembered turns: 0/1"));
+}
+
+#[test]
 fn bookmark_adds_latest_turn_back_to_context() {
     let mut app = App::new();
     let mut message = completed_message(1);
-    message.include_in_context = false;
+    message.forget_context();
     app.session.history.push(message);
     app.session.input = "/bookmark".to_string();
 

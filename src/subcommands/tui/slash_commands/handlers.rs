@@ -13,3 +13,14 @@ pub mod ui_quality;
 
 pub use rules::complete_rules_edit;
 pub use session::ExternalAction;
+
+/// Truncate text to 80 characters for display, appending `...` when cut.
+fn preview(text: &str) -> String {
+    let mut chars = text.chars();
+    let head: String = chars.by_ref().take(80).collect();
+    if chars.next().is_some() {
+        format!("{head}...")
+    } else {
+        head
+    }
+}

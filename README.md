@@ -34,10 +34,10 @@ Supported command forms:
 cargo run
 cargo run -- tui
 cargo run -- swarm
-cargo run -- food
+cargo run -- swarm "<task>"
 ```
 
-`swarm` currently reports model/tool readiness. `food` prints a local starter meal plan without sending private food data anywhere.
+`swarm` with no task reports model/tool readiness. `swarm "<task>"` routes the task and streams it through the local Ollama stack.
 
 By default, the app expects Ollama at `http://localhost:11434`. To use a different Ollama host:
 

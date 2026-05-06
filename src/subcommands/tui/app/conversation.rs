@@ -9,12 +9,12 @@ impl App {
         match event {
             ModelEvent::Token(token) => {
                 if let Some(message) = self.active_message_mut() {
-                    message.answer.push_str(&token);
+                    message.append_token(&token);
                 }
             }
             ModelEvent::Finished => {
                 if let Some(message) = self.active_message_mut() {
-                    message.in_progress = false;
+                    message.finish_streaming();
                 }
 
                 let model_name = self
@@ -27,12 +27,7 @@ impl App {
             }
             ModelEvent::Failed(error) => {
                 if let Some(message) = self.active_message_mut() {
-                    if !message.answer.trim().is_empty() {
-                        message.answer.push_str("\n\n");
-                    }
-                    message.answer.push_str(&error);
-                    message.in_progress = false;
-                    message.failed = true;
+                    message.fail_streaming(&error);
                 }
 
                 self.session.active_model_name = None;
@@ -70,7 +65,7 @@ impl App {
             .history
             .iter()
             .rev()
-            .find(|message| message.include_in_context)
+            .find(|message| message.is_model_turn())
             .map(|message| message.model_name.clone())
             .unwrap_or_else(|| "none".to_string())
     }

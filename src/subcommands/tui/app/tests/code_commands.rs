@@ -2,16 +2,14 @@ use super::super::{App, ChatMessage};
 use crate::subcommands::tui::slash_commands::ExternalAction;
 
 fn message_with_answer(prompt: &str, answer: &str) -> ChatMessage {
-    ChatMessage {
-        prompt: prompt.to_string(),
-        model_name: "Ollama llama3".to_string(),
-        route_reason: "test route".to_string(),
-        answer: answer.to_string(),
-        in_progress: false,
-        failed: false,
-        include_in_context: true,
-        is_local_message: false,
-    }
+    let mut message = ChatMessage::streaming_model_turn(
+        prompt.to_string(),
+        "Ollama llama3".to_string(),
+        "test route".to_string(),
+    );
+    message.append_token(answer);
+    message.finish_streaming();
+    message
 }
 
 fn assert_claude_launch(app: &mut App) -> String {
@@ -119,8 +117,12 @@ fn fix_with_empty_history_appends_local_message_only() {
 #[test]
 fn fix_skips_in_progress_assistant_message() {
     let mut app = App::new();
-    let mut in_flight = message_with_answer("ask", "partial");
-    in_flight.in_progress = true;
+    let mut in_flight = ChatMessage::streaming_model_turn(
+        "ask".to_string(),
+        "Ollama llama3".to_string(),
+        "test route".to_string(),
+    );
+    in_flight.append_token("partial");
     app.session.history.push(in_flight);
     app.session.input = "/fix".to_string();
 

@@ -26,7 +26,7 @@ pub fn last_assistant_message(app: &App) -> Option<String> {
         .history
         .iter()
         .rev()
-        .find(|entry| !entry.in_progress && !entry.failed && !entry.answer.trim().is_empty())
+        .find(|entry| entry.has_completed_model_answer())
         .map(|entry| entry.answer.clone())
 }
 

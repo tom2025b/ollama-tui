@@ -45,16 +45,11 @@ fn trim_history_keeps_recent_turns_only() {
 #[test]
 fn token_events_update_active_message() {
     let mut app = App::new();
-    app.session.history.push(ChatMessage {
-        prompt: "hello".to_string(),
-        model_name: "Ollama llama3".to_string(),
-        route_reason: "test route".to_string(),
-        answer: String::new(),
-        in_progress: true,
-        failed: false,
-        include_in_context: true,
-        is_local_message: false,
-    });
+    app.session.history.push(ChatMessage::streaming_model_turn(
+        "hello".to_string(),
+        "Ollama llama3".to_string(),
+        "test route".to_string(),
+    ));
 
     app.handle_model_event(ModelEvent::Token("hi".to_string()));
     app.handle_model_event(ModelEvent::Token(" there".to_string()));
@@ -106,4 +101,19 @@ fn remembering_latest_turn_persists_project_memory() {
 
     assert_eq!(remembered.as_deref(), Some("prompt 7"));
     assert_eq!(app.memory.items().len(), 1);
+}
+
+#[test]
+fn bookmarked_turn_is_not_duplicated_in_same_session_context() {
+    let mut app = App::new();
+    app.session.history.push(completed_message(7));
+
+    app.remember_latest_history_entry()
+        .expect("memory save should succeed");
+
+    let context = app.conversation_context();
+
+    assert_eq!(context.len(), 1);
+    assert_eq!(context[0].user, "prompt 7");
+    assert_eq!(context[0].assistant, "answer 7");
 }

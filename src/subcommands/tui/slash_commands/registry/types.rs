@@ -1,21 +1,16 @@
 use super::super::parser::ParsedCommand;
 use crate::subcommands::tui::app::App;
 
-/// One visible autocomplete row.
-#[derive(Clone, Copy, Debug, Eq, PartialEq)]
-pub struct CommandSuggestion {
-    pub name: &'static str,
-    pub hint: &'static str,
-    pub detail: &'static str,
-}
-
-/// One command row shown by the help overlay and unknown-command fallback.
+/// One command entry used for both autocomplete suggestions and the help overlay.
 #[derive(Clone, Copy, Debug, Eq, PartialEq)]
 pub struct CommandHelp {
     pub name: &'static str,
     pub hint: &'static str,
     pub detail: &'static str,
 }
+
+/// Autocomplete suggestion — same shape as `CommandHelp`.
+pub type CommandSuggestion = CommandHelp;
 
 pub(super) type CommandExecutor = fn(&mut App, &ParsedCommand);
 
@@ -31,14 +26,6 @@ pub(super) struct CommandDefinition {
 impl CommandDefinition {
     pub(super) fn help(&self) -> CommandHelp {
         CommandHelp {
-            name: self.display_name,
-            hint: self.hint,
-            detail: self.detail,
-        }
-    }
-
-    pub(super) fn suggestion(&self) -> CommandSuggestion {
-        CommandSuggestion {
             name: self.display_name,
             hint: self.hint,
             detail: self.detail,

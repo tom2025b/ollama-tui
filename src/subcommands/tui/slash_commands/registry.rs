@@ -49,7 +49,7 @@ impl CommandRegistry {
                     .iter()
                     .any(|name| name.visible && name.name.starts_with(prefix))
             })
-            .map(|definition| definition.suggestion())
+            .map(|definition| definition.help())
             .collect()
     }
 

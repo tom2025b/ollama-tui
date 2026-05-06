@@ -1,9 +1,7 @@
-use super::environment::RuntimeEnvironment;
-
 /// Environment variable for the small local Ollama model.
-pub(crate) const FAST_OLLAMA_MODEL_ENV: &str = "OLLAMA_FAST_MODEL";
-pub(crate) const CLAUDE_CODE_MODEL_ENV: &str = "CLAUDE_CODE_MODEL";
-pub(crate) const CODEX_MODEL_ENV: &str = "CODEX_MODEL";
+const FAST_OLLAMA_MODEL_ENV: &str = "OLLAMA_FAST_MODEL";
+const CLAUDE_CODE_MODEL_ENV: &str = "CLAUDE_CODE_MODEL";
+const CODEX_MODEL_ENV: &str = "CODEX_MODEL";
 
 /// Default fast local model.
 ///
@@ -20,12 +18,9 @@ pub(crate) struct RuntimeConfig {
 }
 
 impl RuntimeConfig {
-    pub(super) fn from_environment<E>(environment: &E) -> Self
-    where
-        E: RuntimeEnvironment + ?Sized,
-    {
+    pub(super) fn from_environment() -> Self {
         Self {
-            models: ModelRuntimeConfig::from_environment(environment),
+            models: ModelRuntimeConfig::from_environment(),
         }
     }
 
@@ -42,24 +37,14 @@ pub(crate) struct ModelRuntimeConfig {
 }
 
 impl ModelRuntimeConfig {
-    fn from_environment<E>(environment: &E) -> Self
-    where
-        E: RuntimeEnvironment + ?Sized,
-    {
+    fn from_environment() -> Self {
         Self {
-            fast_ollama_model: environment
-                .var(FAST_OLLAMA_MODEL_ENV)
-                .unwrap_or_else(|| DEFAULT_FAST_OLLAMA_MODEL.to_string()),
+            fast_ollama_model: env_or_default(FAST_OLLAMA_MODEL_ENV, DEFAULT_FAST_OLLAMA_MODEL),
             claude_code: TerminalAppRuntimeConfig::from_environment(
-                environment,
                 CLAUDE_CODE_MODEL_ENV,
                 DEFAULT_CLAUDE_CODE_MODEL,
             ),
-            codex: TerminalAppRuntimeConfig::from_environment(
-                environment,
-                CODEX_MODEL_ENV,
-                DEFAULT_CODEX_MODEL,
-            ),
+            codex: TerminalAppRuntimeConfig::from_environment(CODEX_MODEL_ENV, DEFAULT_CODEX_MODEL),
         }
     }
 
@@ -82,22 +67,17 @@ pub(crate) struct TerminalAppRuntimeConfig {
 }
 
 impl TerminalAppRuntimeConfig {
-    fn from_environment<E>(
-        environment: &E,
-        model_env: &'static str,
-        default_model: &'static str,
-    ) -> Self
-    where
-        E: RuntimeEnvironment + ?Sized,
-    {
+    fn from_environment(model_env: &str, default_model: &str) -> Self {
         Self {
-            model_name: environment
-                .var(model_env)
-                .unwrap_or_else(|| default_model.to_string()),
+            model_name: env_or_default(model_env, default_model),
         }
     }
 
     pub(crate) fn model_name(&self) -> &str {
         &self.model_name
     }
+}
+
+fn env_or_default(key: &str, default: &str) -> String {
+    std::env::var(key).unwrap_or_else(|_| default.to_string())
 }

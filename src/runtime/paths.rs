@@ -1,8 +1,6 @@
 use std::ffi::{OsStr, OsString};
 use std::path::{Path, PathBuf};
 
-use super::environment::RuntimeEnvironment;
-
 const APP_DIR: &str = "ai-suite";
 const GLOBAL_CONFIG_DIR: &str = ".config";
 const HISTORY_BASE_DIR: &str = ".local/share";
@@ -34,21 +32,14 @@ pub(crate) struct RuntimePaths {
 }
 
 impl RuntimePaths {
-    pub(super) fn from_environment<E>(environment: &E) -> Self
-    where
-        E: RuntimeEnvironment + ?Sized,
-    {
-        let home_dir = environment
-            .var_os("HOME")
+    pub(super) fn from_environment() -> Self {
+        let home_dir = std::env::var_os("HOME")
             .map(PathBuf::from)
             .unwrap_or_else(|| PathBuf::from("."));
-        let current_dir = environment
-            .current_dir()
-            .unwrap_or_else(|| home_dir.clone());
+        let current_dir = std::env::current_dir().unwrap_or_else(|_| home_dir.clone());
         let project_root = find_project_root(&current_dir);
-        let editor = environment
-            .var_os("VISUAL")
-            .or_else(|| environment.var_os("EDITOR"))
+        let editor = std::env::var_os("VISUAL")
+            .or_else(|| std::env::var_os("EDITOR"))
             .unwrap_or_else(|| OsString::from("vi"));
 
         Self::from_resolved_parts(home_dir, current_dir, project_root, editor)

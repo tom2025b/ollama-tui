@@ -39,17 +39,11 @@ impl App {
             self.ui.scroll_offset = 0;
             let model_name = route.model.display_label();
             self.ui.status = format!("Forwarding to {model_name}...");
-            self.session.history.push(ChatMessage {
-                prompt: prompt.clone(),
+            self.session.history.push(ChatMessage::terminal_handoff(
+                prompt.clone(),
                 model_name,
-                route_reason: route.reason,
-                answer: "→ Prompt forwarded. Working in terminal app — exit to return here."
-                    .to_string(),
-                in_progress: false,
-                failed: false,
-                include_in_context: false,
-                is_local_message: false,
-            });
+                route.reason,
+            ));
             self.trim_history();
             self.commands.queue_external_action(action);
             return None;
@@ -72,16 +66,11 @@ impl App {
         self.ui.scroll_offset = 0;
         self.ui.status = format!("Sent to {model_name}. Waiting for first token...");
 
-        self.session.history.push(ChatMessage {
-            prompt: prompt.clone(),
+        self.session.history.push(ChatMessage::streaming_model_turn(
+            prompt.clone(),
             model_name,
             route_reason,
-            answer: String::new(),
-            in_progress: true,
-            failed: false,
-            include_in_context: true,
-            is_local_message: false,
-        });
+        ));
         self.trim_history();
 
         Some(PendingRequest {

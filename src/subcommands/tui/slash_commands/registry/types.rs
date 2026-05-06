@@ -43,7 +43,6 @@ pub struct CommandHelp {
 /// Resolved command metadata returned by the registry after parsing.
 #[derive(Clone, Copy, Debug)]
 pub struct RegisteredCommand {
-    #[allow(dead_code)]
     pub id: CommandId,
     executor: CommandExecutor,
 }

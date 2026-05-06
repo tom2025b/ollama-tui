@@ -184,3 +184,20 @@ Verification is clean: `fmt`, `check`, `clippy -D warnings`, and `test` all pass
 - Removed 43 Rust source files by collapsing over-split modules.
 - Significantly simplified architecture while keeping every file under 600 lines.
 - Verification still clean: `113 passed; 0 failed; 4 ignored`.
+
+## Provider Replacement and Persistent Memory - May 6th
+
+- Removed Anthropic, OpenAI, OpenAI-compatible, and xAI REST API provider modules entirely.
+- Replaced with `ClaudeCode` and `Codex` as terminal app routes: the TUI suspends and launches the CLI in the project root rather than streaming over an API.
+- No API keys required. No cloud credentials stored or transmitted by the app itself.
+- Added `MemoryStore` (`src/storage/memory.rs`): project-scoped persistent memory stored in `.ai-suite/memory.json`.
+- `MemoryItem` is a proper sum type — `Turn | Note` — with no sentinel strings.
+- Turn items inject as persistent conversation context (before session context).
+- Note items inject as a prompt prefix (`[Project notes]` block), not as fake conversation exchanges.
+- New `/pin <note>` command writes durable project notes.
+- `/bookmark` and `/memory clear` now interact with both session and persistent memory.
+- `Provider::ClaudeCode` and `Provider::Codex` arms in `execution.rs` use `unreachable!()` since `submit_prompt` intercepts terminal-app routes before streaming.
+- Env vars renamed: `CLAUDE_CODE_MODEL` and `CODEX_MODEL` replace the misleading `ANTHROPIC_MODEL`/`OPENAI_MODEL`.
+- `Runtime::for_tests()` uses `std::env::temp_dir()` instead of a hardcoded `/tmp`.
+- Brand names removed from `COMPLEX_WORK_KEYWORDS` routing classifier.
+- Verification clean: `fmt`, `clippy -D warnings`, `120 passed; 0 failed; 1 ignored`.

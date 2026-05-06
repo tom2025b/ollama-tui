@@ -30,7 +30,7 @@ pub(in crate::subcommands::tui::ui) fn draw_session_intel(
     } else {
         "idle"
     };
-    let routing_mode = if app.current_model_label().contains("(pinned)") {
+    let routing_mode = if app.has_pinned_model() {
         "pinned"
     } else {
         "auto"

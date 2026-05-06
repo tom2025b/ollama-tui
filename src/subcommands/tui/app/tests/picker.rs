@@ -10,6 +10,8 @@ fn models_picker_navigates_and_pins_selection() {
 
     assert!(!app.ui.show_models_picker);
     assert!(app.is_pinned(&expected));
+    assert!(app.has_pinned_model());
+    assert_eq!(app.routing_mode_label(), "PINNED");
     assert!(app.current_model_label().contains("(pinned)"));
     assert!(
         app.current_model_label()
@@ -33,6 +35,8 @@ fn models_picker_auto_entry_clears_pin() {
     app.accept_model_selection();
 
     assert!(!app.is_pinned(&first));
+    assert!(!app.has_pinned_model());
+    assert_eq!(app.routing_mode_label(), "AUTO ROUTER");
     assert!(!app.current_model_label().contains("(pinned)"));
 }
 

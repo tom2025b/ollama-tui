@@ -3,8 +3,8 @@ mod types;
 
 use super::parser::{ParsedCommand, suggestion_prefix};
 use definitions::COMMAND_GROUPS;
-use types::CommandDefinition;
-pub use types::{CommandHelp, CommandId, CommandSuggestion, RegisteredCommand};
+use types::{CommandDefinition, CommandExecutor};
+pub use types::{CommandHelp, CommandSuggestion};
 
 /// Registry for all slash-command names, aliases, help text, and handlers.
 #[derive(Clone, Copy, Debug)]
@@ -26,13 +26,13 @@ impl CommandRegistry {
     }
 
     /// Resolve a parsed command to its registered executable definition.
-    pub fn resolve(&self, parsed: &ParsedCommand) -> Option<RegisteredCommand> {
+    pub fn resolve(&self, parsed: &ParsedCommand) -> Option<CommandExecutor> {
         self.definitions().find_map(|definition| {
             definition
                 .names
                 .iter()
                 .find(|name| name.name == parsed.name())
-                .map(|_| definition.registered_command())
+                .map(|_| definition.execute)
         })
     }
 

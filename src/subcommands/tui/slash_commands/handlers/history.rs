@@ -1,53 +1,100 @@
-mod report;
+use std::fmt::Write as _;
 
+use crate::subcommands::tui::app::App;
 use crate::subcommands::tui::slash_commands::parser::ParsedCommand;
 
-pub(super) use self::report::history_report;
-use super::session::{CommandContext, CommandOutput, HistoryExport, HistoryView, RulesContext};
-
-pub fn handle_history_command<C>(context: &mut C, command: &ParsedCommand)
-where
-    C: CommandOutput + HistoryView + HistoryExport + RulesContext + ?Sized,
-{
+pub fn history_command(app: &mut App, command: &ParsedCommand) {
     let mut args = command.args().iter().map(String::as_str);
     let subcommand = args.next().map(|arg| arg.to_ascii_lowercase());
 
     match subcommand.as_deref() {
         None | Some("show") => {
-            context.append_local_message(command.raw(), history_report(context));
-            context.set_status("Displayed history.".to_string());
+            app.append_local_message(command.raw(), history_report(app));
+            app.ui.status = "Displayed history.".to_string();
         }
         Some("save") => {
             let requested_path = args.next();
-            let report = history_report(context);
+            let report = history_report(app);
 
-            match context.save_history_report(&report, requested_path) {
+            match crate::storage::history::save_report(app.runtime.paths(), &report, requested_path)
+            {
                 Ok(path) => {
-                    context.append_local_message(
+                    app.append_local_message(
                         command.raw(),
                         format!("Saved history to {}.", path.display()),
                     );
-                    context.set_status("Saved history.".to_string());
+                    app.ui.status = "Saved history.".to_string();
                 }
                 Err(error) => {
-                    context.append_local_message(
+                    app.append_local_message(
                         command.raw(),
                         format!("Could not save history: {error}"),
                     );
-                    context.set_status("Failed to save history.".to_string());
+                    app.ui.status = "Failed to save history.".to_string();
                 }
             }
         }
         _ => {
-            context.append_local_message(
+            app.append_local_message(
                 command.raw(),
                 "Usage: /history [show|save [path]]".to_string(),
             );
-            context.set_status("Unknown /history command.".to_string());
+            app.ui.status = "Unknown /history command.".to_string();
         }
     }
 }
 
-pub fn execute_history_command(context: &mut dyn CommandContext, command: &ParsedCommand) {
-    handle_history_command(context, command);
+pub(super) fn history_report(app: &App) -> String {
+    let conversation = app
+        .session
+        .history
+        .iter()
+        .filter(|message| message.include_in_context)
+        .collect::<Vec<_>>();
+    let mut report = String::new();
+
+    write_report_header(app, &mut report);
+
+    if conversation.is_empty() {
+        report.push_str("No model conversation history yet.\n");
+        return report;
+    }
+
+    for (index, message) in conversation.iter().enumerate() {
+        let _ = writeln!(report, "## Turn {}", index + 1);
+        let _ = writeln!(report, "Model: {}", message.model_name);
+        let _ = writeln!(report, "Route: {}", message.route_reason);
+
+        if message.failed {
+            let _ = writeln!(report, "Status: failed");
+        } else if message.in_progress {
+            let _ = writeln!(report, "Status: streaming");
+        }
+
+        let _ = writeln!(report);
+        let _ = writeln!(report, "User:");
+        let _ = writeln!(report, "{}", message.prompt);
+        let _ = writeln!(report);
+        let _ = writeln!(report, "Assistant:");
+        let answer = if message.answer.trim().is_empty() {
+            "(no answer yet)"
+        } else {
+            &message.answer
+        };
+        let _ = writeln!(report, "{answer}");
+        let _ = writeln!(report);
+    }
+
+    report
+}
+
+fn write_report_header(app: &App, report: &mut String) {
+    let _ = writeln!(report, "ai-suite history");
+    let _ = writeln!(report, "Rules: {}", app.rules.status_line());
+
+    if let Some(project_root) = app.rules.project_root() {
+        let _ = writeln!(report, "Project: {}", project_root.display());
+    }
+
+    let _ = writeln!(report);
 }

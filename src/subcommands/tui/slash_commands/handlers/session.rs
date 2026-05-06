@@ -1,52 +1,39 @@
-mod context;
+use std::path::PathBuf;
 
+use crate::prompt_rules::RulesTarget;
+use crate::subcommands::tui::app::App;
 use crate::subcommands::tui::slash_commands::parser::ParsedCommand;
-pub use context::{
-    AppLifecycle, CommandContext, CommandOutput, ContextMemory, ConversationControl,
-    ExternalAction, HelpOverlay, HistoryEntry, HistoryExport, HistoryView, ModelActivity,
-    ModelCatalog, ModelPicker, PromptStaging, RulesContext, Setting, SettingEdit, SettingsContext,
-};
 
-pub fn open_models_command<C>(context: &mut C, _command: &ParsedCommand)
-where
-    C: ModelPicker + ?Sized,
-{
-    context.open_models_picker();
+/// External work requested by a command handler.
+#[derive(Clone, Debug)]
+pub enum ExternalAction {
+    /// Open a rules file in the configured editor, then reload rules when it exits.
+    EditRules {
+        /// Which rules file is being edited.
+        target: RulesTarget,
+
+        /// File path to open.
+        path: PathBuf,
+    },
 }
 
-pub fn execute_open_models_command(context: &mut dyn CommandContext, command: &ParsedCommand) {
-    open_models_command(context, command);
+pub fn open_models_command(app: &mut App, _command: &ParsedCommand) {
+    app.open_models_picker();
 }
 
-pub fn open_help_command<C>(context: &mut C, _command: &ParsedCommand)
-where
-    C: HelpOverlay + ?Sized,
-{
-    context.open_help_overlay();
+pub fn open_help_command(app: &mut App, _command: &ParsedCommand) {
+    app.ui.show_help = true;
+    app.ui.status = "Help is open. Press q, Esc, ?, or Ctrl-C to close it.".to_string();
 }
 
-pub fn execute_open_help_command(context: &mut dyn CommandContext, command: &ParsedCommand) {
-    open_help_command(context, command);
+pub fn quit_command(app: &mut App, _command: &ParsedCommand) {
+    app.quit();
 }
 
-pub fn quit_command<C>(context: &mut C, _command: &ParsedCommand)
-where
-    C: AppLifecycle + ?Sized,
-{
-    context.quit();
-}
-
-pub fn execute_quit_command(context: &mut dyn CommandContext, command: &ParsedCommand) {
-    quit_command(context, command);
-}
-
-pub fn unknown_command<C>(context: &mut C, command: &ParsedCommand, available_commands: &str)
-where
-    C: CommandOutput + ?Sized,
-{
-    context.append_local_message(
+pub fn unknown_command(app: &mut App, command: &ParsedCommand, available_commands: &str) {
+    app.append_local_message(
         command.raw(),
         format!("Unknown command. Available commands: {available_commands}."),
     );
-    context.set_status("Unknown command.".to_string());
+    app.ui.status = "Unknown command.".to_string();
 }

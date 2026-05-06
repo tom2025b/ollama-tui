@@ -29,15 +29,12 @@ impl App {
             return Vec::new();
         }
 
-        self.commands
-            .command_dispatcher
-            .registry()
-            .suggestions(&self.session.input)
+        self.commands.registry.suggestions(&self.session.input)
     }
 
     /// Command help rows from the command registry.
     pub fn command_help_entries(&self) -> Vec<CommandHelp> {
-        self.commands.command_dispatcher.registry().help_entries()
+        self.commands.registry.help_entries()
     }
 
     /// Currently highlighted suggestion index, clamped to the live match list.

@@ -1,3 +1,4 @@
+mod capabilities;
 pub mod food;
 pub mod registry;
 pub mod spec;

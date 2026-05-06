@@ -18,14 +18,14 @@ fn assert_unique(names: &[&str]) {
 }
 
 #[test]
-fn registry_resolves_aliases_to_same_command_id() {
+fn registry_resolves_visible_name_and_hidden_alias_to_same_command() {
     let registry = CommandRegistry::default();
 
-    assert_eq!(
-        registry.resolve(&parse("/backend")).unwrap().id,
-        CommandId::Backend
-    );
-    assert_eq!(registry.resolve(&parse("/q")).unwrap().id, CommandId::Quit);
+    let by_name = registry.resolve(&parse("/quit")).expect("name resolves");
+    let by_alias = registry.resolve(&parse("/q")).expect("alias resolves");
+
+    assert!(std::ptr::fn_addr_eq(by_name, by_alias));
+    assert!(registry.resolve(&parse("/backend")).is_some());
 }
 
 #[test]
@@ -78,6 +78,21 @@ fn registry_does_not_resolve_removed_plural_aliases() {
 
     assert!(registry.resolve(&parse("/models")).is_none());
     assert!(registry.resolve(&parse("/backends")).is_none());
+}
+
+#[test]
+fn registry_does_not_expose_private_commands() {
+    let registry = CommandRegistry::default();
+    let help_names = registry
+        .help_entries()
+        .into_iter()
+        .map(|entry| entry.name)
+        .collect::<Vec<_>>();
+
+    for private_command in ["/claude", "/codex", "/cost"] {
+        assert!(registry.resolve(&parse(private_command)).is_none());
+        assert!(!help_names.contains(&private_command));
+    }
 }
 
 #[test]

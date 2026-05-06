@@ -24,6 +24,17 @@ ollama serve
 cargo run
 ```
 
+Supported command forms:
+
+```sh
+cargo run
+cargo run -- tui
+cargo run -- swarm
+cargo run -- food
+```
+
+`swarm` currently reports model/tool readiness. `food` prints a local starter meal plan without sending private food data anywhere.
+
 By default, the app expects Ollama at `http://localhost:11434`. To use a different Ollama host:
 
 ```sh

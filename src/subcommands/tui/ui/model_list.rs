@@ -27,7 +27,7 @@ pub(super) fn draw_model_rail(frame: &mut Frame, app: &App, area: Rect) {
     let mut lines = vec![
         Line::from(vec![
             Span::styled("MODE     ", theme::label_style(app)),
-            Span::styled(routing_mode(app), theme::accent_style(app)),
+            Span::styled(app.routing_mode_label(), theme::accent_style(app)),
         ]),
         Line::from(vec![
             Span::styled("CURRENT  ", theme::label_style(app)),
@@ -110,7 +110,7 @@ pub(super) fn draw_model_ribbon(frame: &mut Frame, app: &App, area: Rect) {
     let lines = vec![
         Line::from(vec![
             Span::styled("mode ", theme::label_style(app)),
-            Span::styled(routing_mode(app), theme::accent_style(app)),
+            Span::styled(app.routing_mode_label(), theme::accent_style(app)),
             Span::styled("  current ", theme::label_style(app)),
             Span::styled(app.current_model_label(), theme::secondary_style(app)),
         ]),
@@ -119,12 +119,4 @@ pub(super) fn draw_model_ribbon(frame: &mut Frame, app: &App, area: Rect) {
 
     let ribbon = Paragraph::new(lines).style(theme::body_style(app));
     frame.render_widget(ribbon, inner);
-}
-
-fn routing_mode(app: &App) -> &'static str {
-    if app.current_model_label().contains("(pinned)") {
-        "PINNED"
-    } else {
-        "AUTO ROUTER"
-    }
 }

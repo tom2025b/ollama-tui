@@ -1,6 +1,6 @@
-# ollama-me
+# ai-suite
 
-`ollama-me` is a terminal chat app that routes prompts between local Ollama and optional cloud LLM backends. It streams responses token by token, keeps a bounded conversation context, and forces sensitive prompts to stay local.
+`ai-suite` is a terminal chat app that routes prompts between local Ollama and optional cloud LLM backends. It streams responses token by token, keeps a bounded conversation context, and forces sensitive prompts to stay local.
 
 ## Requirements
 
@@ -67,18 +67,37 @@ Type these into the prompt box and press Enter:
 
 ```text
 /clear
-/models
-/backends
+/model
+/backend
 /rules [global|project|show|off|on|toggle]
-/history [show|save [path]|email [subject]]
+/history [show|save [path]]
+/summary
+/export [path]
+/context
+/tokens
+/bookmark
+/memory
+/explain
+/fix
+/review
+/theme
+/resize
+/help
+/quit
 ```
 
 - `/clear` clears the visible conversation. It is blocked while a model is streaming.
-- `/models` opens an interactive picker. Use Up/Down to navigate, Enter to pin a model (every new prompt skips the router and goes to that model), and Esc to cancel. Pick `Auto` to hand routing back to the router.
-- `/backends` lists backend readiness.
-- `/rules` opens the current project rules in `nano` when a project is detected, otherwise global rules. Global rules live at `~/.config/ollama-me/rules.md`; project rules live at `<project-root>/.ollama-me/rules.md`.
+- `/model` opens an interactive picker. Use Up/Down to navigate, Enter to pin a model (every new prompt skips the router and goes to that model), and Esc to cancel. Pick `Auto` to hand routing back to the router.
+- `/backend` lists backend readiness.
+- `/rules` opens the current project rules in `$VISUAL`, then `$EDITOR`, then `vi` when a project is detected, otherwise global rules. Global rules live at `~/.config/ai-suite/rules.md`; project rules live at `<project-root>/.ai-suite/rules.md`.
 - `/rules off`, `/rules on`, and `/rules toggle` control whether rules are applied to new prompts.
-- `/history` shows the current session transcript. `/history save` writes a text file under `~/.local/share/ollama-me/history/`, and `/history email` pipes it through `~/bin/send-report`.
+- `/history` shows the current session transcript. `/history save` writes a text file under `~/.local/share/ai-suite/history/`.
+- `/summary` shows a compact session summary.
+- `/export` saves a formatted history report to a chosen path or the default history directory.
+- `/context`, `/tokens`, `/bookmark`, and `/memory` inspect and control which turns are carried forward into future prompts.
+- `/explain`, `/fix`, and `/review` stage follow-up prompts based on the most recent code or assistant output.
+- `/theme` and `/resize` adjust the TUI presentation.
+- `/help` opens the help overlay. `/quit` and `/exit` leave the app.
 
 Press `?` with an empty prompt to open the help screen. Press `q`, `Esc`, `?`, or `Ctrl-C` to close it.
 

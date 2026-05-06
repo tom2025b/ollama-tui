@@ -8,7 +8,7 @@ and the final code review fix pass on 2026-05-06.
 
 The codebase has been moved to a modular Rust application called `ai-suite`.
 
-- Cargo package name: `ollama-me`.
+- Cargo package name: `ai-suite`.
 - Public binary target: `ai-suite`.
 - Library crate: `ai_suite`.
 - Current implemented user-facing experience: the TUI.
@@ -54,21 +54,20 @@ Migration and cleanup completed across all passes:
 16. Added `.gitignore` coverage for local HomeKit/Homebridge JSON dumps.
 17. Collapsed dead match arm in `badge_fg`.
 18. Removed `println!` side effect from `storage/history::save_report`.
-19. Renamed all user-facing paths, labels, and templates from `ollama-me` to
-    `ai-suite`.
+19. Renamed all user-facing paths, labels, and templates to `ai-suite`.
 20. Moved editor command resolution (`$VISUAL`/`$EDITOR`/`vi`) into
     `RuntimePaths` to close the last direct env-var read outside `Runtime`.
 21. Changed provider submodule declarations to `pub(crate)` to match their
     actual crate-internal visibility.
 22. Replaced inline `crate::...` paths in `prompt.rs` with `use` imports.
-23. Replaced `model_name != "ollama-me"` string sentinels with a structural
+23. Replaced the old `model_name` string sentinels with a structural
     `is_local_message: bool` field on `ChatMessage` and `HistoryEntry`.
 
 ## Cargo Layout
 
 ```toml
 [package]
-name = "ollama-me"
+name = "ai-suite"
 
 [lib]
 name = "ai_suite"
@@ -227,7 +226,8 @@ src/
 ## Important Boundary Decisions
 
 - Public TUI slash commands no longer include `/claude`, `/codex`, or `/cost`.
-- Public code no longer hard-codes Tom-specific paths or `send-report`.
+- Public code no longer hard-codes Tom-specific paths or private report-mail
+  hooks.
 - Rules editing uses `$VISUAL`, `$EDITOR`, then `vi` — resolved once at
   startup in `RuntimePaths`, not read ad hoc at edit time.
 - Slash command handlers depend on focused capability traits instead of a broad
@@ -258,17 +258,18 @@ Observed test result:
 
 Largest Rust source file: 169 lines. All files are under the 400-line limit.
 
+## Final Closeout Status
+
+- The cleanup and refactor phase is complete.
+- The public README now matches the current `ai-suite` app name, command
+  surface, rules/history paths, and editor behavior.
+- The repository target state is a clean `main` branch with no local drift from
+  `origin/main`.
+
 ## Working Tree Notes
 
-Expected uncommitted documentation/context files include:
-
-```text
-AGENTS.md
-MIGRATION_PLAN.md
-SESSION_SUMMARY.md
-CURRENT_STATE.md
-FIXES.md
-```
+No uncommitted documentation/context files are expected after the final
+closeout commit.
 
 The ignored local file `0E-7B-77-69-E6-E8.json` is a HomeKit/Homebridge dump
 with pairing data. It is intentionally ignored by `.gitignore` and should not
@@ -278,5 +279,7 @@ be reviewed or committed.
 
 - All issues from the 2026-05-06 code review pass have been addressed.
 - The codebase is in a clean, stable state for the next feature phase.
+- README and handoff documentation are now aligned with the current public
+  behavior.
 - Next logical work: implement real `swarm` and `food` subcommand behavior,
   or register built-in tools and the first private extension pack.

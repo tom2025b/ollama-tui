@@ -1,4 +1,4 @@
-# Brutal Code Review: `ollama-tui` / `ollama-me`
+# Brutal Code Review: `ollama-tui` / `ai-suite`
 
 **Scope:** ~6,656 LOC across 108 source files. Rust + ratatui + tokio + reqwest. All files comply with the 120-line cap.
 

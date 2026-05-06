@@ -23,8 +23,8 @@ Addressed seven findings from the post-migration code review pass:
 
 - Added `is_local_message: bool` to `ChatMessage` and `HistoryEntry`.
 - Local slash command results set it `true`; model turns set it `false`.
-- Replaced all four `model_name != "ollama-me"` string comparisons with the
-  boolean field in `conversation/context.rs`, `history_output.rs`, and
+- Replaced all four previous `model_name` string comparisons with the boolean
+  field in `conversation/context.rs`, `history_output.rs`, and
   `context_memory/report.rs`.
 
 Review files:
@@ -58,7 +58,7 @@ Review files:
 
 ### 4. App name in paths, labels, and templates
 
-- Updated all filesystem paths from `ollama-me` to `ai-suite`:
+- Updated all filesystem paths to `ai-suite`:
   - Global config: `~/.config/ai-suite/rules.md`
   - Project rules: `<root>/.ai-suite/rules.md`
   - History export: `~/.local/share/ai-suite/history/`
@@ -126,6 +126,14 @@ Observed test result:
 112 passed; 0 failed; 4 ignored
 ```
 
+## Final Closeout Status
+
+- The cleanup phase is complete.
+- The README has been fully updated to reflect the current `ai-suite` public
+  surface, including current command names and current rules/history paths.
+- The remaining documentation drift identified after the review pass has been
+  closed.
+
 ## Review Notes For Claude
 
 - `swarm` and `food` are intentionally stubbed top-level subcommands.
@@ -134,6 +142,7 @@ Observed test result:
   registered in the public code.
 - The public build should not expose private slash commands, private filesystem
   paths, or local pairing/config secrets.
-- The `model_name` field on local messages still contains `"ollama-me"` as a
+- The `model_name` field on local messages still contains `"ai-suite"` as a
   human-readable label; the `is_local_message` boolean is now the canonical
   way to distinguish local command output from model turns.
+- README and the state handoff docs are now aligned with the current codebase.

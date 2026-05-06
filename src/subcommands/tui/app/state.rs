@@ -1,3 +1,5 @@
+use std::ffi::OsStr;
+
 use crate::prompt_rules::RulesState;
 use crate::runtime::Runtime;
 
@@ -43,5 +45,9 @@ impl App {
             should_quit: false,
             rules,
         }
+    }
+
+    pub(crate) fn editor_command(&self) -> &OsStr {
+        self.runtime.paths().editor()
     }
 }

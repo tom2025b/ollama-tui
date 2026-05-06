@@ -1,3 +1,4 @@
+use std::ffi::{OsStr, OsString};
 use std::path::{Path, PathBuf};
 
 use super::environment::RuntimeEnvironment;
@@ -27,6 +28,7 @@ pub(crate) struct RuntimePaths {
     global_rules_path: PathBuf,
     project_rules_path: PathBuf,
     history_dir: PathBuf,
+    editor: OsString,
 }
 
 impl RuntimePaths {
@@ -42,8 +44,12 @@ impl RuntimePaths {
             .current_dir()
             .unwrap_or_else(|| home_dir.clone());
         let project_root = find_project_root(&current_dir);
+        let editor = environment
+            .var_os("VISUAL")
+            .or_else(|| environment.var_os("EDITOR"))
+            .unwrap_or_else(|| OsString::from("vi"));
 
-        Self::from_resolved_parts(home_dir, current_dir, project_root)
+        Self::from_resolved_parts(home_dir, current_dir, project_root, editor)
     }
 
     #[cfg(test)]
@@ -52,7 +58,7 @@ impl RuntimePaths {
         current_dir: PathBuf,
         project_root: Option<PathBuf>,
     ) -> Self {
-        Self::from_resolved_parts(home_dir, current_dir, project_root)
+        Self::from_resolved_parts(home_dir, current_dir, project_root, OsString::from("vi"))
     }
 
     pub(crate) fn project_root(&self) -> Option<&Path> {
@@ -70,6 +76,10 @@ impl RuntimePaths {
     pub(crate) fn history_report_path(&self, timestamp_seconds: u64) -> PathBuf {
         self.history_dir
             .join(format!("ai-suite-history-{timestamp_seconds}.txt"))
+    }
+
+    pub(crate) fn editor(&self) -> &OsStr {
+        &self.editor
     }
 
     pub(crate) fn expand_user_path(&self, path: &str) -> PathBuf {
@@ -93,6 +103,7 @@ impl RuntimePaths {
         home_dir: PathBuf,
         current_dir: PathBuf,
         project_root: Option<PathBuf>,
+        editor: OsString,
     ) -> Self {
         let global_rules_path = home_dir
             .join(GLOBAL_CONFIG_DIR)
@@ -112,6 +123,7 @@ impl RuntimePaths {
             global_rules_path,
             project_rules_path,
             history_dir,
+            editor,
         }
     }
 }

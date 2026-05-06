@@ -1,4 +1,4 @@
-use std::{env, ffi::OsString, process::Command};
+use std::process::Command;
 
 use anyhow::Result;
 
@@ -16,7 +16,7 @@ pub fn run_external_action(
 ) -> Result<()> {
     match action {
         ExternalAction::EditRules { target, path } => {
-            let editor = editor_command();
+            let editor = app.editor_command().to_os_string();
             let editor_name = editor.to_string_lossy().into_owned();
 
             suspend_terminal(terminal)?;
@@ -34,10 +34,4 @@ pub fn run_external_action(
     }
 
     Ok(())
-}
-
-fn editor_command() -> OsString {
-    env::var_os("VISUAL")
-        .or_else(|| env::var_os("EDITOR"))
-        .unwrap_or_else(|| OsString::from("vi"))
 }

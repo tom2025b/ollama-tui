@@ -5,7 +5,7 @@ impl App {
     pub fn append_local_message(&mut self, command: &str, answer: String) {
         self.session.history.push(ChatMessage {
             prompt: command.to_string(),
-            model_name: "ollama-me".to_string(),
+            model_name: "ai-suite".to_string(),
             route_reason: "Local command. Not sent to any model.".to_string(),
             answer,
             in_progress: false,

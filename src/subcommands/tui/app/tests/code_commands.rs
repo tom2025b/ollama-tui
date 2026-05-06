@@ -41,7 +41,7 @@ fn explain_without_code_block_appends_local_message_only() {
     assert!(request.is_none());
     assert!(!app.session.waiting_for_model);
     let last = app.session.history.last().expect("local message");
-    assert_eq!(last.model_name, "ollama-me");
+    assert_eq!(last.model_name, "ai-suite");
     assert!(last.answer.contains("No fenced code block"));
 }
 

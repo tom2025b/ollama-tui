@@ -36,7 +36,7 @@ fn singular_backend_command_adds_local_message_without_model_request() {
     assert!(request.is_none());
     let message = app.session.history.last().expect("local command message");
     assert_eq!(message.prompt, "/backend");
-    assert_eq!(message.model_name, "ollama-me");
+    assert_eq!(message.model_name, "ai-suite");
     assert!(!message.include_in_context);
     assert!(message.answer.contains("Ollama"));
 }

@@ -95,10 +95,10 @@ mod tests {
             Some(PathBuf::from("/tmp")),
         );
 
-        let saved = save_report(&paths, "hello", Some("~/ollama-me-test.txt"))
+        let saved = save_report(&paths, "hello", Some("~/ai-suite-test.txt"))
             .expect("history report should save");
 
-        assert_eq!(saved, PathBuf::from("/tmp/ollama-me-test.txt"));
+        assert_eq!(saved, PathBuf::from("/tmp/ai-suite-test.txt"));
         let _ = fs::remove_file(saved);
     }
 }

@@ -54,7 +54,7 @@ fn write_report_header<C>(context: &C, report: &mut String)
 where
     C: RulesContext + ?Sized,
 {
-    let _ = writeln!(report, "ollama-me history");
+    let _ = writeln!(report, "ai-suite history");
     let _ = writeln!(report, "Rules: {}", context.rules_status_line());
 
     if let Some(project_root) = context.project_root() {

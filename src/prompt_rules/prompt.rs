@@ -10,7 +10,7 @@ impl RulesState {
         }
 
         let mut wrapped = String::from(
-            "Use these persistent ollama-me rules for this answer. If the current user request explicitly conflicts with a style preference, follow the current request.\n\n",
+            "Use these persistent ai-suite rules for this answer. If the current user request explicitly conflicts with a style preference, follow the current request.\n\n",
         );
 
         for section in sections {

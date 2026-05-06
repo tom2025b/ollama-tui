@@ -36,7 +36,7 @@ pub(super) fn rules_file_state(rules_file: Option<&RulesFile>) -> &'static str {
 
 pub(super) fn default_rules_template(target: RulesTarget) -> String {
     format!(
-        "# ollama-me {}\n# Lines beginning with # are ignored by ollama-me.\n# Add persistent instructions below. Leave blank to disable this file.\n",
+        "# ai-suite {}\n# Lines beginning with # are ignored by ai-suite.\n# Add persistent instructions below. Leave blank to disable this file.\n",
         target.label()
     )
 }

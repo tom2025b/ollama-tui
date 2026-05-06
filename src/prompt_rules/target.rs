@@ -1,9 +1,9 @@
 /// Which rules file the user wants to edit.
 #[derive(Clone, Copy, Debug, Eq, PartialEq)]
 pub enum RulesTarget {
-    /// User-wide rules loaded from `~/.config/ollama-me/rules.md`.
+    /// User-wide rules loaded from `~/.config/ai-suite/rules.md`.
     Global,
-    /// Project-local rules loaded from `<project-root>/.ollama-me/rules.md`.
+    /// Project-local rules loaded from `<project-root>/.ai-suite/rules.md`.
     Project,
 }
 

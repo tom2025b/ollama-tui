@@ -13,7 +13,7 @@ use super::{
 
 pub(in crate::subcommands::tui::ui) fn header_block(app: &App) -> Block<'static> {
     Block::bordered()
-        .title(" ollama-me ")
+        .title(" ai-suite ")
         .title_alignment(Alignment::Left)
         .title_style(deck_title_style(app))
         .borders(Borders::ALL)

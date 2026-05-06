@@ -54,7 +54,7 @@ fn summary_command_adds_local_summary() {
 
 #[test]
 fn export_command_writes_history_report() {
-    let path = "/tmp/ollama-me-export-test.txt";
+    let path = "/tmp/ai-suite-export-test.txt";
     let mut app = App::new();
     app.session.history.push(completed_message(1));
     app.session.input = format!("/export {path}");
@@ -65,7 +65,7 @@ fn export_command_writes_history_report() {
     assert!(
         fs::read_to_string(path)
             .unwrap()
-            .contains("ollama-me history")
+            .contains("ai-suite history")
     );
     let _ = fs::remove_file(path);
 }

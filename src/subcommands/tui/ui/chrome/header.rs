@@ -29,7 +29,7 @@ pub(in crate::subcommands::tui::ui) fn draw_header(frame: &mut Frame, app: &App,
 
     if area.height < 3 {
         let line = Paragraph::new(Line::from(vec![
-            Span::styled("ollama-me ", theme::accent_style(app)),
+            Span::styled("ai-suite ", theme::accent_style(app)),
             Span::styled(active_label, active_style),
             Span::styled("  ", theme::raised_style(app)),
             Span::styled(app.current_model_label(), theme::muted_style(app)),

@@ -2,11 +2,11 @@ use std::path::{Path, PathBuf};
 
 use super::environment::RuntimeEnvironment;
 
-const APP_DIR: &str = "ollama-me";
+const APP_DIR: &str = "ai-suite";
 const GLOBAL_CONFIG_DIR: &str = ".config";
 const HISTORY_BASE_DIR: &str = ".local/share";
 const HISTORY_DIR: &str = "history";
-const PROJECT_RULES_DIR: &str = ".ollama-me";
+const PROJECT_RULES_DIR: &str = ".ai-suite";
 const RULES_FILE: &str = "rules.md";
 
 const PROJECT_MARKERS: &[&str] = &[
@@ -69,7 +69,7 @@ impl RuntimePaths {
 
     pub(crate) fn history_report_path(&self, timestamp_seconds: u64) -> PathBuf {
         self.history_dir
-            .join(format!("ollama-me-history-{timestamp_seconds}.txt"))
+            .join(format!("ai-suite-history-{timestamp_seconds}.txt"))
     }
 
     pub(crate) fn expand_user_path(&self, path: &str) -> PathBuf {

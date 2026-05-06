@@ -9,5 +9,6 @@ pub(super) fn completed_message(number: usize) -> ChatMessage {
         in_progress: false,
         failed: false,
         include_in_context: true,
+        is_local_message: false,
     }
 }

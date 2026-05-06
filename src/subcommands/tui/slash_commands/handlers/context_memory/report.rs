@@ -87,5 +87,5 @@ fn ready_for_context(entry: &HistoryEntry<'_>) -> bool {
 }
 
 fn is_model_turn(entry: &HistoryEntry<'_>) -> bool {
-    entry.model_name != "ollama-me"
+    !entry.is_local_message
 }

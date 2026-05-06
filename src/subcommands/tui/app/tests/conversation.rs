@@ -53,6 +53,7 @@ fn token_events_update_active_message() {
         in_progress: true,
         failed: false,
         include_in_context: true,
+        is_local_message: false,
     });
 
     app.handle_model_event(ModelEvent::Token("hi".to_string()));

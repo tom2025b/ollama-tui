@@ -35,6 +35,9 @@ pub struct ChatMessage {
 
     /// True when this exchange should be sent as future model context.
     pub include_in_context: bool,
+
+    /// True when this entry was produced by a local slash command, not a model.
+    pub is_local_message: bool,
 }
 
 /// Work item created when the user submits a prompt.

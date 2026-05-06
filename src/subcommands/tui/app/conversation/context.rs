@@ -34,7 +34,7 @@ impl App {
 
     pub fn include_latest_history_entry(&mut self, include: bool) -> Option<String> {
         let message = self.session.history.iter_mut().rev().find(|message| {
-            message.model_name != "ollama-me"
+            !message.is_local_message
                 && !message.in_progress
                 && !message.failed
                 && !message.answer.trim().is_empty()
@@ -47,7 +47,7 @@ impl App {
     pub fn clear_context_memory(&mut self) -> usize {
         let mut cleared = 0;
         for message in self.session.history.iter_mut().filter(|message| {
-            message.include_in_context && message.model_name != "ollama-me" && !message.in_progress
+            message.include_in_context && !message.is_local_message && !message.in_progress
         }) {
             message.include_in_context = false;
             cleared += 1;

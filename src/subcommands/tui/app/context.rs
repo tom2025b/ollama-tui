@@ -106,6 +106,7 @@ impl HistoryView for App {
                 in_progress: message.in_progress,
                 failed: message.failed,
                 include_in_context: message.include_in_context,
+                is_local_message: message.is_local_message,
             })
             .collect()
     }

@@ -9,6 +9,7 @@ fn message_with_answer(prompt: &str, answer: &str) -> ChatMessage {
         in_progress: false,
         failed: false,
         include_in_context: true,
+        is_local_message: false,
     }
 }
 

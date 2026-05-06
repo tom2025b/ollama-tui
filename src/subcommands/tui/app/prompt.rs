@@ -52,6 +52,7 @@ impl App {
             in_progress: true,
             failed: false,
             include_in_context: true,
+            is_local_message: false,
         });
         self.trim_history();
 

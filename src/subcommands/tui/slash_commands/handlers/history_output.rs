@@ -92,7 +92,7 @@ fn join_models(models: &BTreeSet<&str>) -> String {
 }
 
 fn is_model_turn(entry: &HistoryEntry<'_>) -> bool {
-    entry.model_name != "ollama-me"
+    !entry.is_local_message
 }
 
 fn preview(text: &str) -> String {

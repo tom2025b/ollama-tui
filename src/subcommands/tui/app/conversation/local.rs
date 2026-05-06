@@ -11,6 +11,7 @@ impl App {
             in_progress: false,
             failed: false,
             include_in_context: false,
+            is_local_message: true,
         });
         self.trim_history();
     }

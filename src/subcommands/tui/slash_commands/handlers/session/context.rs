@@ -26,6 +26,7 @@ pub struct HistoryEntry<'a> {
     pub in_progress: bool,
     pub failed: bool,
     pub include_in_context: bool,
+    pub is_local_message: bool,
 }
 
 #[derive(Clone, Copy, Debug, Eq, PartialEq)]

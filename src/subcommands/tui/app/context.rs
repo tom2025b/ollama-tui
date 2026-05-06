@@ -2,7 +2,7 @@ use std::path::PathBuf;
 
 use super::App;
 use crate::llm::LanguageModel;
-use crate::rules::RulesTarget;
+use crate::prompt_rules::RulesTarget;
 use crate::subcommands::tui::slash_commands::handlers::CommandContext;
 use crate::subcommands::tui::slash_commands::handlers::{
     ExternalAction, HistoryEntry, Setting, SettingEdit,
@@ -65,7 +65,7 @@ impl CommandContext for App {
     }
 
     fn reload_rules(&mut self, enabled: bool) {
-        self.rules = crate::rules::RulesState::load().with_enabled(enabled);
+        self.rules = crate::prompt_rules::RulesState::load().with_enabled(enabled);
     }
 
     fn rules_status_line(&self) -> String {

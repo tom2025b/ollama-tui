@@ -1,4 +1,4 @@
-use crate::rules::RulesState;
+use crate::prompt_rules::RulesState;
 
 use super::command_state::CommandState;
 use super::routing_state::RoutingState;

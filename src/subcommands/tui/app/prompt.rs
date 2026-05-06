@@ -1,6 +1,6 @@
 use super::{App, ChatMessage, PendingRequest};
 use crate::llm::RouteDecision;
-use crate::router::Router;
+use crate::routing::Router;
 
 impl App {
     /// Try to submit the current prompt.

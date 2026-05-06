@@ -1,6 +1,6 @@
 use super::App;
 use crate::llm::LanguageModel;
-use crate::router::Router;
+use crate::routing::Router;
 
 impl App {
     /// Return the list of models that can be displayed by the UI.

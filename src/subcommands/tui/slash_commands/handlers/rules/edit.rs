@@ -1,6 +1,6 @@
 use std::path::PathBuf;
 
-use crate::rules::RulesTarget;
+use crate::prompt_rules::RulesTarget;
 
 use super::CommandContext;
 

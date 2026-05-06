@@ -1,8 +1,10 @@
 use std::env;
 
 use super::RulesState;
-use crate::rules::paths::{find_project_root, global_rules_path, home_dir, project_rules_path};
-use crate::rules::storage::read_optional_rules;
+use crate::prompt_rules::paths::{
+    find_project_root, global_rules_path, home_dir, project_rules_path,
+};
+use crate::prompt_rules::storage::read_optional_rules;
 
 impl RulesState {
     /// Load global rules and project rules from the nearest project root.

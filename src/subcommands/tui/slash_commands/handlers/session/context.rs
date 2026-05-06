@@ -1,7 +1,7 @@
 use std::path::PathBuf;
 
 use crate::llm::LanguageModel;
-use crate::rules::RulesTarget;
+use crate::prompt_rules::RulesTarget;
 
 /// External work requested by a command handler.
 #[derive(Clone, Debug)]

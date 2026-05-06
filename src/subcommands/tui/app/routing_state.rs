@@ -1,5 +1,5 @@
 use crate::llm::LanguageModel;
-use crate::router::ModelRouter;
+use crate::routing::ModelRouter;
 
 /// Routing state for prompt dispatch and the optional `/model` pin.
 pub(super) struct RoutingState {

@@ -1,8 +1,8 @@
 use super::RulesState;
-use crate::rules::content::{RuleSection, active_section};
+use crate::prompt_rules::content::{RuleSection, active_section};
 
 impl RulesState {
-    pub(in crate::rules) fn active_rule_sections(&self) -> Vec<RuleSection> {
+    pub(in crate::prompt_rules) fn active_rule_sections(&self) -> Vec<RuleSection> {
         if !self.enabled {
             return Vec::new();
         }
@@ -10,7 +10,7 @@ impl RulesState {
         self.loaded_rule_sections()
     }
 
-    pub(in crate::rules) fn loaded_rule_sections(&self) -> Vec<RuleSection> {
+    pub(in crate::prompt_rules) fn loaded_rule_sections(&self) -> Vec<RuleSection> {
         let mut sections = Vec::new();
 
         if let Some(global_rules) = active_section("Global rules", "global", &self.global_rules) {

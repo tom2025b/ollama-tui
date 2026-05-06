@@ -1,6 +1,6 @@
 mod edit;
 
-use crate::rules::RulesTarget;
+use crate::prompt_rules::RulesTarget;
 use crate::subcommands::tui::slash_commands::parser::ParsedCommand;
 
 use super::session::{CommandContext, ExternalAction};

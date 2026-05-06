@@ -1,9 +1,9 @@
 use std::{env, fs, io, path::PathBuf};
 
 use super::RulesState;
-use crate::rules::paths::home_dir;
-use crate::rules::storage::default_rules_template;
-use crate::rules::target::RulesTarget;
+use crate::prompt_rules::paths::home_dir;
+use crate::prompt_rules::storage::default_rules_template;
+use crate::prompt_rules::target::RulesTarget;
 
 impl RulesState {
     pub fn prepare_edit(&self, target: RulesTarget) -> io::Result<PathBuf> {
@@ -22,7 +22,7 @@ impl RulesState {
         Ok(path)
     }
 
-    pub(in crate::rules) fn project_edit_path(&self) -> PathBuf {
+    pub(in crate::prompt_rules) fn project_edit_path(&self) -> PathBuf {
         self.project_root
             .clone()
             .unwrap_or_else(|| env::current_dir().unwrap_or_else(|_| home_dir()))

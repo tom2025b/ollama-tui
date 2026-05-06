@@ -1,6 +1,7 @@
 use super::{App, ChatMessage, PendingRequest};
 use crate::llm::RouteDecision;
 use crate::routing::Router;
+use crate::subcommands::tui::slash_commands::{self, ParseResult};
 
 impl App {
     /// Try to submit the current prompt.
@@ -62,20 +63,14 @@ impl App {
     }
 
     fn try_execute_command(&mut self, prompt: &str) -> bool {
-        let crate::subcommands::tui::slash_commands::ParseResult::Command(command) =
-            crate::subcommands::tui::slash_commands::parse_slash_command(prompt)
-        else {
+        let ParseResult::Command(command) = slash_commands::parse_slash_command(prompt) else {
             return false;
         };
 
         self.session.input.clear();
         let dispatch = self.commands.command_dispatcher.dispatch(command);
         let available_commands = self.commands.command_dispatcher.available_commands();
-        crate::subcommands::tui::slash_commands::execute_dispatch(
-            self,
-            dispatch,
-            &available_commands,
-        );
+        slash_commands::execute_dispatch(self, dispatch, &available_commands);
         true
     }
 

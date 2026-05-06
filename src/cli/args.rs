@@ -19,6 +19,16 @@ pub enum CliCommand {
     Food,
 }
 
+impl CliCommand {
+    pub fn name(self) -> &'static str {
+        match self {
+            Self::Tui => "tui",
+            Self::Swarm => "swarm",
+            Self::Food => "food",
+        }
+    }
+}
+
 impl Cli {
     pub fn parse_args() -> Self {
         Self::parse()

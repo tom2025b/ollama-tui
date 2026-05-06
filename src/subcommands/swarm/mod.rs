@@ -11,7 +11,7 @@ pub async fn run(runtime: &Runtime) -> Result<()> {
     println!("Swarm readiness");
     println!("Models:");
     for model in router.models() {
-        let state = if model.enabled { "ready" } else { "setup" };
+        let state = if model.enabled { "ready" } else { "offline" };
         let detail = model
             .disabled_reason
             .as_deref()

@@ -39,6 +39,22 @@ fn bookmark_adds_latest_turn_back_to_context() {
 }
 
 #[test]
+fn pin_command_persists_project_note() {
+    let mut app = App::new();
+    app.session.input = "/pin Keep every Rust module focused.".to_string();
+
+    let request = app.submit_prompt();
+
+    assert!(request.is_none());
+    assert_eq!(app.memory.items().len(), 1);
+    assert_eq!(
+        app.memory.items()[0].display_content(),
+        "Keep every Rust module focused."
+    );
+    assert_eq!(app.ui.status, "Pinned project memory.");
+}
+
+#[test]
 fn summary_command_adds_local_summary() {
     let mut app = App::new();
     app.session.history.push(completed_message(1));

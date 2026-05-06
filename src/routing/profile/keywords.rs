@@ -2,7 +2,7 @@
 pub(super) const LOCAL_ONLY_KEYWORDS: &[&str] =
     &["private", "privacy", "offline", "local only", "do not send"];
 
-/// Sensitive phrases that should never be sent to a cloud provider automatically.
+/// Sensitive phrases that should never leave the local model automatically.
 pub(super) const SENSITIVE_PHRASES: &[&str] = &[
     "api key",
     "account number",
@@ -100,7 +100,23 @@ pub(super) const DEEP_REASONING_OR_CODE_KEYWORDS: &[&str] = &[
     "security",
 ];
 
-pub(super) const CREATIVE_OR_GENERAL_CLOUD_KEYWORDS: &[&str] = &[
+pub(super) const COMPLEX_WORK_KEYWORDS: &[&str] = &[
+    "approach",
+    "careful",
+    "compare",
+    "complex",
+    "design",
+    "evaluate",
+    "hard problem",
+    "implementation",
+    "investigate",
+    "multi-step",
+    "recommend",
+    "strategy",
+    "system",
+];
+
+pub(super) const CREATIVE_OR_GENERAL_TERMINAL_KEYWORDS: &[&str] = &[
     "write",
     "draft",
     "rewrite",

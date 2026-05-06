@@ -37,7 +37,7 @@ pub(super) fn draw_model_rail(frame: &mut Frame, app: &App, area: Rect) {
     ];
 
     for model in models {
-        let status_label = if model.enabled { "READY" } else { "SETUP" };
+        let status_label = if model.enabled { "READY" } else { "OFFLINE" };
         let status_style = if model.enabled {
             theme::success_style(app).add_modifier(Modifier::BOLD)
         } else {
@@ -101,7 +101,7 @@ pub(super) fn draw_model_ribbon(frame: &mut Frame, app: &App, area: Rect) {
         } else {
             theme::warning_style(app)
         };
-        let marker = if model.enabled { "READY" } else { "SETUP" };
+        let marker = if model.enabled { "READY" } else { "OFFLINE" };
         model_spans.push(Span::styled(format!("{marker} "), style));
         model_spans.push(Span::styled(model.provider.label(), theme::body_style(app)));
         model_spans.push(Span::styled("  ", theme::body_style(app)));

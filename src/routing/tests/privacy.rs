@@ -1,13 +1,13 @@
 use super::super::*;
 use super::support::{enabled_model, router_with_models};
-use crate::providers::{anthropic, openai, xai};
+use crate::runtime::{DEFAULT_CLAUDE_CODE_MODEL, DEFAULT_CODEX_MODEL};
 
 #[test]
 fn privacy_prompt_stays_on_primary_ollama() {
     let router = router_with_models(vec![
         enabled_model(Provider::Ollama, PRIMARY_OLLAMA_MODEL),
         enabled_model(Provider::Ollama, DEFAULT_FAST_OLLAMA_MODEL),
-        enabled_model(Provider::OpenAi, openai::DEFAULT_OPENAI_MODEL),
+        enabled_model(Provider::Codex, DEFAULT_CODEX_MODEL),
     ]);
 
     let decision = router.route("private local only: summarize this personal note");
@@ -16,13 +16,12 @@ fn privacy_prompt_stays_on_primary_ollama() {
 }
 
 #[test]
-fn sensitive_medical_prompt_stays_on_primary_ollama_even_when_cloud_is_enabled() {
+fn sensitive_medical_prompt_stays_on_primary_ollama_even_when_terminal_apps_are_enabled() {
     let router = router_with_models(vec![
         enabled_model(Provider::Ollama, PRIMARY_OLLAMA_MODEL),
         enabled_model(Provider::Ollama, DEFAULT_FAST_OLLAMA_MODEL),
-        enabled_model(Provider::Anthropic, anthropic::DEFAULT_ANTHROPIC_MODEL),
-        enabled_model(Provider::OpenAi, openai::DEFAULT_OPENAI_MODEL),
-        enabled_model(Provider::Xai, xai::DEFAULT_XAI_MODEL),
+        enabled_model(Provider::ClaudeCode, DEFAULT_CLAUDE_CODE_MODEL),
+        enabled_model(Provider::Codex, DEFAULT_CODEX_MODEL),
     ]);
 
     let decision = router.route("summarize these medical records and draft an email");
@@ -36,8 +35,8 @@ fn sensitive_credential_prompt_stays_on_primary_ollama_even_for_code() {
     let router = router_with_models(vec![
         enabled_model(Provider::Ollama, PRIMARY_OLLAMA_MODEL),
         enabled_model(Provider::Ollama, DEFAULT_FAST_OLLAMA_MODEL),
-        enabled_model(Provider::Anthropic, anthropic::DEFAULT_ANTHROPIC_MODEL),
-        enabled_model(Provider::OpenAi, openai::DEFAULT_OPENAI_MODEL),
+        enabled_model(Provider::ClaudeCode, DEFAULT_CLAUDE_CODE_MODEL),
+        enabled_model(Provider::Codex, DEFAULT_CODEX_MODEL),
     ]);
 
     let decision = router.route("debug this Python error; it includes my API key");

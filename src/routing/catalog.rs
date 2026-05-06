@@ -1,7 +1,4 @@
-use crate::{
-    llm::LanguageModel,
-    runtime::{CloudProviderRuntimeConfig, ModelRuntimeConfig},
-};
+use crate::{llm::LanguageModel, runtime::ModelRuntimeConfig};
 
 use super::ModelRouter;
 
@@ -11,8 +8,8 @@ pub const PRIMARY_OLLAMA_MODEL: &str = "llama3";
 impl ModelRouter {
     /// Create the router with all supported backends.
     ///
-    /// Cloud models are listed even when disabled so the TUI can show what must
-    /// be configured.
+    /// Claude Code and Codex are local terminal apps, so the router can choose
+    /// them without provider credential checks.
     pub(crate) fn new(config: &ModelRuntimeConfig) -> Self {
         Self {
             models: vec![
@@ -28,37 +25,27 @@ impl ModelRouter {
                     config.fast_ollama_model(),
                     &["fast local model", "short/simple prompts", "low latency"],
                 ),
-                LanguageModel::anthropic(
-                    config.anthropic().model_name(),
-                    &["deep coding", "careful reasoning", "long structured work"],
-                    config.anthropic().configured(),
-                    disabled_reason(config.anthropic()),
-                ),
-                LanguageModel::openai(
-                    config.openai().model_name(),
-                    &["balanced cloud model", "general tasks", "creative drafting"],
-                    config.openai().configured(),
-                    disabled_reason(config.openai()),
-                ),
-                LanguageModel::xai(
-                    config.xai().model_name(),
+                LanguageModel::claude_code(
+                    config.claude_code().model_name(),
                     &[
-                        "Grok reasoning",
-                        "public-discourse questions",
-                        "fresh-context style prompts",
+                        "Claude Code terminal app",
+                        "deep coding",
+                        "long structured work",
                     ],
-                    config.xai().configured(),
-                    disabled_reason(config.xai()),
+                    true,
+                    None,
+                ),
+                LanguageModel::codex(
+                    config.codex().model_name(),
+                    &[
+                        "Codex terminal app",
+                        "general coding",
+                        "implementation work",
+                    ],
+                    true,
+                    None,
                 ),
             ],
         }
-    }
-}
-
-fn disabled_reason(config: &CloudProviderRuntimeConfig) -> Option<String> {
-    if config.configured() {
-        None
-    } else {
-        Some(config.missing_configuration_reason().to_string())
     }
 }

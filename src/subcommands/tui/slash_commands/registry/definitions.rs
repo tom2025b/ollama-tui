@@ -43,7 +43,7 @@ const CORE_COMMANDS: &[CommandDefinition] = &[
     CommandDefinition {
         display_name: "/backend",
         hint: "List backend readiness",
-        detail: "Show configured and unavailable backends.",
+        detail: "Show local and terminal route targets.",
         names: &[CommandName {
             name: "/backend",
             visible: true,
@@ -158,12 +158,22 @@ const CONTEXT_COMMANDS: &[CommandDefinition] = &[
     CommandDefinition {
         display_name: "/memory",
         hint: "Show or clear memory",
-        detail: "Show remembered turns or clear them from future context.",
+        detail: "Show or clear session and persisted project memory.",
         names: &[CommandName {
             name: "/memory",
             visible: true,
         }],
         execute: handlers::context_memory::memory_command,
+    },
+    CommandDefinition {
+        display_name: "/pin",
+        hint: "Persist project context",
+        detail: "Persist a project note that is injected into future prompts.",
+        names: &[CommandName {
+            name: "/pin",
+            visible: true,
+        }],
+        execute: handlers::context_memory::pin_command,
     },
 ];
 

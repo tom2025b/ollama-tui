@@ -1,4 +1,6 @@
 use super::super::App;
+use crate::llm::Provider;
+use crate::subcommands::tui::slash_commands::ExternalAction;
 
 #[test]
 fn models_picker_navigates_and_pins_selection() {
@@ -53,6 +55,41 @@ fn pinned_model_overrides_router_for_new_prompts() {
 
     assert_eq!(request.route.model.display_label(), pinned.display_label());
     assert!(request.route.reason.contains("Pinned"));
+}
+
+#[test]
+fn pinned_claude_launches_terminal_app_instead_of_model_request() {
+    let mut app = App::new();
+    let claude = app
+        .pickable_models()
+        .into_iter()
+        .find(|model| model.provider == Provider::ClaudeCode)
+        .expect("Claude Code target is pickable")
+        .clone();
+    app.routing.pinned_model = Some(claude);
+    app.session.input = "compare these implementation approaches".to_string();
+
+    let request = app.submit_prompt();
+    let action = app.take_external_action();
+
+    assert!(request.is_none());
+    assert!(matches!(action, Some(ExternalAction::ClaudeCode { .. })));
+    assert!(!app.session.waiting_for_model);
+}
+
+#[test]
+fn complex_auto_route_launches_claude_terminal_app() {
+    let mut app = App::new();
+    app.session.input =
+        "complex: compare architectures and recommend a careful implementation approach"
+            .to_string();
+
+    let request = app.submit_prompt();
+    let action = app.take_external_action();
+
+    assert!(request.is_none());
+    assert!(matches!(action, Some(ExternalAction::ClaudeCode { .. })));
+    assert!(!app.session.waiting_for_model);
 }
 
 #[test]

@@ -9,6 +9,7 @@ const HISTORY_BASE_DIR: &str = ".local/share";
 const HISTORY_DIR: &str = "history";
 const PROJECT_RULES_DIR: &str = ".ai-suite";
 const RULES_FILE: &str = "rules.md";
+const MEMORY_FILE: &str = "memory.json";
 
 const PROJECT_MARKERS: &[&str] = &[
     ".git",
@@ -27,6 +28,7 @@ pub(crate) struct RuntimePaths {
     project_root: Option<PathBuf>,
     global_rules_path: PathBuf,
     project_rules_path: PathBuf,
+    project_memory_path: PathBuf,
     history_dir: PathBuf,
     editor: OsString,
 }
@@ -73,6 +75,10 @@ impl RuntimePaths {
         &self.project_rules_path
     }
 
+    pub(crate) fn project_memory_path(&self) -> &Path {
+        &self.project_memory_path
+    }
+
     pub(crate) fn history_report_path(&self, timestamp_seconds: u64) -> PathBuf {
         self.history_dir
             .join(format!("ai-suite-history-{timestamp_seconds}.txt"))
@@ -111,6 +117,7 @@ impl RuntimePaths {
             .join(RULES_FILE);
         let project_rules_base = project_root.as_ref().unwrap_or(&current_dir);
         let project_rules_path = project_rules_base.join(PROJECT_RULES_DIR).join(RULES_FILE);
+        let project_memory_path = project_rules_base.join(PROJECT_RULES_DIR).join(MEMORY_FILE);
         let history_dir = home_dir
             .join(HISTORY_BASE_DIR)
             .join(APP_DIR)
@@ -122,6 +129,7 @@ impl RuntimePaths {
             project_root,
             global_rules_path,
             project_rules_path,
+            project_memory_path,
             history_dir,
             editor,
         }

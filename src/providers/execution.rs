@@ -1,7 +1,7 @@
 use anyhow::Result;
 
 use crate::llm::{ConversationTurn, LanguageModel, Provider};
-use crate::providers::{anthropic, ollama, openai, xai};
+use crate::providers::ollama;
 
 /// Provider-neutral request handed to the concrete model backends.
 #[derive(Clone, Debug)]
@@ -51,33 +51,9 @@ where
             )
             .await
         }
-        Provider::Anthropic => {
-            anthropic::stream(
-                &request.model.name,
-                &request.context,
-                &request.prompt,
-                &mut on_token,
-            )
-            .await
-        }
-        Provider::OpenAi => {
-            openai::stream(
-                &request.model.name,
-                &request.context,
-                &request.prompt,
-                &mut on_token,
-            )
-            .await
-        }
-        Provider::Xai => {
-            xai::stream(
-                &request.model.name,
-                &request.context,
-                &request.prompt,
-                &mut on_token,
-            )
-            .await
-        }
+        Provider::ClaudeCode | Provider::Codex => unreachable!(
+            "terminal app providers must be intercepted in submit_prompt before streaming"
+        ),
     }
 }
 

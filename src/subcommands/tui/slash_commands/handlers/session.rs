@@ -7,6 +7,18 @@ use crate::subcommands::tui::slash_commands::parser::ParsedCommand;
 /// External work requested by a command handler.
 #[derive(Clone, Debug)]
 pub enum ExternalAction {
+    /// Suspend the TUI and hand control to the `claude` CLI.
+    ClaudeCode {
+        /// Directory to launch Claude Code in.
+        working_dir: PathBuf,
+    },
+
+    /// Suspend the TUI and hand control to the `codex` CLI.
+    CodexCli {
+        /// Directory to launch Codex in.
+        working_dir: PathBuf,
+    },
+
     /// Open a rules file in the configured editor, then reload rules when it exits.
     EditRules {
         /// Which rules file is being edited.
@@ -28,6 +40,26 @@ pub fn open_help_command(app: &mut App, _command: &ParsedCommand) {
 
 pub fn quit_command(app: &mut App, _command: &ParsedCommand) {
     app.quit();
+}
+
+pub fn complete_claude_session(app: &mut App, result: Result<(), String>) {
+    match result {
+        Ok(()) => app.ui.status = "Returned from Claude Code.".to_string(),
+        Err(error) => {
+            app.append_local_message("Claude Code", format!("Claude Code failed.\n{error}"));
+            app.ui.status = "Claude Code failed.".to_string();
+        }
+    }
+}
+
+pub fn complete_codex_session(app: &mut App, result: Result<(), String>) {
+    match result {
+        Ok(()) => app.ui.status = "Returned from Codex.".to_string(),
+        Err(error) => {
+            app.append_local_message("Codex", format!("Codex failed.\n{error}"));
+            app.ui.status = "Codex failed.".to_string();
+        }
+    }
 }
 
 pub fn unknown_command(app: &mut App, command: &ParsedCommand, available_commands: &str) {

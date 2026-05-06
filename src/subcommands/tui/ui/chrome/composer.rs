@@ -69,6 +69,8 @@ fn render_footer(frame: &mut Frame, app: &App, inner: Rect) {
         Span::styled(" pin  ", theme::composer_hint_style(app)),
         Span::styled("/theme", theme::chip_accent_style(app)),
         Span::styled(" switch  ", theme::composer_hint_style(app)),
+        Span::styled("/pin", theme::chip_accent_style(app)),
+        Span::styled(" memory  ", theme::composer_hint_style(app)),
         Span::styled("PgUp/PgDn", theme::chip_accent_style(app)),
         Span::styled(" history", theme::composer_hint_style(app)),
     ]))

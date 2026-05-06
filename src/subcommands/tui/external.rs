@@ -15,6 +15,32 @@ pub fn run_external_action(
     action: ExternalAction,
 ) -> Result<()> {
     match action {
+        ExternalAction::ClaudeCode { working_dir } => {
+            suspend_terminal(terminal)?;
+            let result = Command::new("claude").current_dir(&working_dir).status();
+            resume_terminal(terminal)?;
+
+            let result = match result {
+                Ok(status) if status.success() => Ok(()),
+                Ok(status) => Err(format!("claude exited with status {status}")),
+                Err(error) => Err(format!("failed to launch claude: {error}")),
+            };
+
+            handlers::session::complete_claude_session(app, result);
+        }
+        ExternalAction::CodexCli { working_dir } => {
+            suspend_terminal(terminal)?;
+            let result = Command::new("codex").current_dir(&working_dir).status();
+            resume_terminal(terminal)?;
+
+            let result = match result {
+                Ok(status) if status.success() => Ok(()),
+                Ok(status) => Err(format!("codex exited with status {status}")),
+                Err(error) => Err(format!("failed to launch codex: {error}")),
+            };
+
+            handlers::session::complete_codex_session(app, result);
+        }
         ExternalAction::EditRules { target, path } => {
             let editor = app.editor_command().to_os_string();
             let editor_name = editor.to_string_lossy().into_owned();

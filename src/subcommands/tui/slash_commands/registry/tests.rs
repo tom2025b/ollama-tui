@@ -121,6 +121,7 @@ fn registry_help_uses_current_command_definitions() {
             "/tokens",
             "/bookmark",
             "/memory",
+            "/pin",
             "/summary",
             "/export",
             "/theme",
@@ -136,6 +137,6 @@ fn registry_builds_available_commands_from_definitions() {
 
     assert_eq!(
         registry.available_commands(),
-        "/clear, /explain, /model, /backend, /rules, /help, /history, /fix, /review, /quit, /context, /tokens, /bookmark, /memory, /summary, /export, /theme, /resize"
+        "/clear, /explain, /model, /backend, /rules, /help, /history, /fix, /review, /quit, /context, /tokens, /bookmark, /memory, /pin, /summary, /export, /theme, /resize"
     );
 }

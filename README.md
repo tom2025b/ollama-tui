@@ -1,6 +1,10 @@
 # ai-suite
 
-`ai-suite` is a terminal chat app that routes prompts between local Ollama and optional cloud LLM backends. It streams responses token by token, keeps a bounded conversation context, and forces sensitive prompts to stay local.
+`ai-suite` is a command-deck for terminal AI work.
+
+It routes plain prompts across local Ollama, Claude Code, and Codex without API-key setup inside the app. Simple and private work stays local. Deep coding work launches Claude Code in the project root. Current-context, creative, and general terminal work launches Codex. Project memory, prompt rules, slash commands, and exports are built into the TUI so the tool keeps its bearings across sessions.
+
+The design rule is simple: the terminal is the interface, the project is the context, and the router should make the obvious backend choice before you have to think about it.
 
 ## Requirements
 
@@ -42,22 +46,13 @@ export OLLAMA_HOST=http://127.0.0.1:11434
 cargo run
 ```
 
-## Optional API Keys
+## Optional Model Names
 
-Cloud backends are disabled until their API key environment variables are present.
-
-```sh
-export ANTHROPIC_API_KEY=your_anthropic_key
-export OPENAI_API_KEY=your_openai_key
-export XAI_API_KEY=your_xai_key
-```
-
-You can also override model names:
+Claude Code and Codex are launched as terminal apps, not API backends. You can override the labels shown in the router:
 
 ```sh
-export ANTHROPIC_MODEL=claude-sonnet-4-20250514
-export OPENAI_MODEL=gpt-4o
-export XAI_MODEL=grok-4.20-reasoning
+export CLAUDE_CODE_MODEL=claude-sonnet-4-20250514
+export CODEX_MODEL=codex
 export OLLAMA_FAST_MODEL=llama3:latest
 ```
 
@@ -65,12 +60,30 @@ export OLLAMA_FAST_MODEL=llama3:latest
 
 - Sensitive prompts are forced to Ollama.
 - Short prompts use the fast local Ollama model.
-- Coding and deep reasoning prompts prefer Anthropic when configured.
-- Current or public-context prompts prefer xAI when configured.
-- General and creative prompts prefer OpenAI when configured.
-- If a preferred cloud backend is unavailable, routing falls back to local Ollama.
+- Coding, complex, and deep reasoning prompts launch Claude Code.
+- Current, public-context, general, and creative prompts prefer Codex.
+- If you pin Claude Code or Codex with `/model`, new prompts launch that terminal app directly.
+- Local Ollama remains the fallback route for private or simple prompts.
 
 The router shows the chosen model and route reason in the conversation.
+
+## Project Memory
+
+`ai-suite` keeps long-term memory per project under:
+
+```text
+<project-root>/.ai-suite/memory.json
+```
+
+Use `/bookmark` to persist the latest completed model turn. Use `/pin <note>` to persist a durable project note such as architectural rules, repository quirks, or user preferences. Future prompts receive a bounded mix of project memory and recent session context, so remembered facts survive restarts without turning every transcript into permanent baggage.
+
+Project rules live beside memory at:
+
+```text
+<project-root>/.ai-suite/rules.md
+```
+
+Together, memory and rules form the local constitution for the project.
 
 ## Commands
 
@@ -88,6 +101,7 @@ Type these into the prompt box and press Enter:
 /tokens
 /bookmark
 /memory
+/pin <note>
 /explain
 /fix
 /review
@@ -99,13 +113,14 @@ Type these into the prompt box and press Enter:
 
 - `/clear` clears the visible conversation. It is blocked while a model is streaming.
 - `/model` opens an interactive picker. Use Up/Down to navigate, Enter to pin a model (every new prompt skips the router and goes to that model), and Esc to cancel. Pick `Auto` to hand routing back to the router.
-- `/backend` lists backend readiness.
+- `/backend` lists route target readiness.
 - `/rules` opens the current project rules in `$VISUAL`, then `$EDITOR`, then `vi` when a project is detected, otherwise global rules. Global rules live at `~/.config/ai-suite/rules.md`; project rules live at `<project-root>/.ai-suite/rules.md`.
 - `/rules off`, `/rules on`, and `/rules toggle` control whether rules are applied to new prompts.
 - `/history` shows the current session transcript. `/history save` writes a text file under `~/.local/share/ai-suite/history/`.
 - `/summary` shows a compact session summary.
 - `/export` saves a formatted history report to a chosen path or the default history directory.
-- `/context`, `/tokens`, `/bookmark`, and `/memory` inspect and control which turns are carried forward into future prompts.
+- `/context`, `/tokens`, `/bookmark`, `/memory`, and `/pin` inspect and control which turns and project notes are carried forward into future prompts.
+- `/pin <note>` writes a project memory item that survives future TUI sessions.
 - `/explain`, `/fix`, and `/review` stage follow-up prompts based on the most recent code or assistant output.
 - `/theme` and `/resize` adjust the TUI presentation.
 - `/help` opens the help overlay. `/quit` and `/exit` leave the app.
@@ -132,4 +147,4 @@ cargo clippy --all-targets -- -D warnings
 cargo test
 ```
 
-Live provider smoke tests are ignored by default because they require local services or paid API keys.
+Live provider smoke tests are ignored by default because they require local services or paid provider credentials.

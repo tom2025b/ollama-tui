@@ -4,6 +4,7 @@ use crate::llm::LanguageModel;
 use crate::prompt_rules::RulesState;
 use crate::routing::ModelRouter;
 use crate::runtime::{Runtime, RuntimeConfig};
+use crate::storage::memory::MemoryStore;
 use crate::subcommands::tui::slash_commands::{CommandRegistry, ExternalAction};
 
 use super::ChatMessage;
@@ -150,18 +151,20 @@ pub struct App {
     pub(crate) should_quit: bool,
 
     pub(crate) rules: RulesState,
+    pub(crate) memory: MemoryStore,
 }
 
 impl App {
     /// Build a fresh app with the default router.
     #[cfg(test)]
     pub fn new() -> Self {
-        Self::with_runtime(Runtime::load())
+        Self::with_runtime(Runtime::for_tests())
     }
 
     pub(crate) fn with_runtime(runtime: Runtime) -> Self {
         let routing = RoutingState::new(runtime.config());
         let rules = RulesState::load(runtime.paths());
+        let memory = MemoryStore::load(runtime.paths());
 
         Self {
             runtime,
@@ -171,6 +174,7 @@ impl App {
             ui: UiState::new(),
             should_quit: false,
             rules,
+            memory,
         }
     }
 

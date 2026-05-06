@@ -76,3 +76,34 @@ fn command_messages_are_not_sent_as_context() {
     assert_eq!(context.len(), 1);
     assert_eq!(context[0].user, "prompt 1");
 }
+
+#[test]
+fn pinned_notes_inject_as_prompt_prefix_not_as_context_turns() {
+    let mut app = App::new();
+    app.pin_memory_note("Always prefer modular files.").unwrap();
+    app.session.history.push(completed_message(1));
+
+    let context = app.conversation_context();
+
+    // Notes do not appear in conversation context — they are not fake turns.
+    // They are injected as a prefix inside prompt_for_model() instead.
+    assert_eq!(context.len(), 1);
+    assert_eq!(context[0].user, "prompt 1");
+
+    // The note does appear in the notes prefix.
+    let prefix = app.memory.notes_prompt_prefix();
+    assert!(prefix.contains("Always prefer modular files."));
+}
+
+#[test]
+fn remembering_latest_turn_persists_project_memory() {
+    let mut app = App::new();
+    app.session.history.push(completed_message(7));
+
+    let remembered = app
+        .remember_latest_history_entry()
+        .expect("memory save should succeed");
+
+    assert_eq!(remembered.as_deref(), Some("prompt 7"));
+    assert_eq!(app.memory.items().len(), 1);
+}

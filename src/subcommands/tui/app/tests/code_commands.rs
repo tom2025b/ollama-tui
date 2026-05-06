@@ -1,4 +1,5 @@
 use super::super::{App, ChatMessage};
+use crate::subcommands::tui::slash_commands::ExternalAction;
 
 fn message_with_answer(prompt: &str, answer: &str) -> ChatMessage {
     ChatMessage {
@@ -13,8 +14,24 @@ fn message_with_answer(prompt: &str, answer: &str) -> ChatMessage {
     }
 }
 
+fn assert_claude_launch(app: &mut App) -> String {
+    let request = app.submit_prompt();
+    let action = app.take_external_action();
+
+    assert!(request.is_none());
+    assert!(matches!(action, Some(ExternalAction::ClaudeCode { .. })));
+    assert!(!app.session.waiting_for_model);
+
+    app.session
+        .history
+        .last()
+        .expect("launch message")
+        .prompt
+        .clone()
+}
+
 #[test]
-fn explain_with_code_block_sends_prompt_to_model() {
+fn explain_with_code_block_launches_claude() {
     let mut app = App::new();
     app.session.history.push(message_with_answer(
         "show me a snippet",
@@ -22,13 +39,10 @@ fn explain_with_code_block_sends_prompt_to_model() {
     ));
     app.session.input = "/explain".to_string();
 
-    let request = app
-        .submit_prompt()
-        .expect("explain should produce a model request");
+    let prompt = assert_claude_launch(&mut app);
 
-    assert!(request.prompt.contains("Explain this code"));
-    assert!(request.prompt.contains("fn hi() {}"));
-    assert!(app.session.waiting_for_model);
+    assert!(prompt.contains("Explain this code"));
+    assert!(prompt.contains("fn hi() {}"));
 }
 
 #[test]
@@ -46,23 +60,21 @@ fn explain_without_code_block_appends_local_message_only() {
 }
 
 #[test]
-fn review_with_code_block_sends_prompt_to_model() {
+fn review_with_code_block_launches_claude() {
     let mut app = App::new();
     app.session
         .history
         .push(message_with_answer("draft", "```py\nprint('hi')\n```"));
     app.session.input = "/review".to_string();
 
-    let request = app
-        .submit_prompt()
-        .expect("review should produce a model request");
+    let prompt = assert_claude_launch(&mut app);
 
-    assert!(request.prompt.contains("Review the following code"));
-    assert!(request.prompt.contains("print('hi')"));
+    assert!(prompt.contains("Review the following code"));
+    assert!(prompt.contains("print('hi')"));
 }
 
 #[test]
-fn fix_prefers_code_block_over_assistant_message() {
+fn fix_prefers_code_block_over_assistant_message_and_launches_claude() {
     let mut app = App::new();
     app.session.history.push(message_with_answer(
         "patch",
@@ -70,16 +82,14 @@ fn fix_prefers_code_block_over_assistant_message() {
     ));
     app.session.input = "/fix".to_string();
 
-    let request = app
-        .submit_prompt()
-        .expect("fix should produce a model request");
+    let prompt = assert_claude_launch(&mut app);
 
-    assert!(request.prompt.contains("Analyze this code for bugs"));
-    assert!(request.prompt.contains("let n = 0; n + 1"));
+    assert!(prompt.contains("Analyze this code for bugs"));
+    assert!(prompt.contains("let n = 0; n + 1"));
 }
 
 #[test]
-fn fix_falls_back_to_last_assistant_message_when_no_code_block() {
+fn fix_falls_back_to_last_assistant_message_and_launches_claude() {
     let mut app = App::new();
     app.session.history.push(message_with_answer(
         "claim",
@@ -87,16 +97,10 @@ fn fix_falls_back_to_last_assistant_message_when_no_code_block() {
     ));
     app.session.input = "/fix".to_string();
 
-    let request = app
-        .submit_prompt()
-        .expect("fix should produce a model request");
+    let prompt = assert_claude_launch(&mut app);
 
-    assert!(
-        request
-            .prompt
-            .contains("Check the following message for factual errors")
-    );
-    assert!(request.prompt.contains("Sydney"));
+    assert!(prompt.contains("Check the following message for factual errors"));
+    assert!(prompt.contains("Sydney"));
 }
 
 #[test]

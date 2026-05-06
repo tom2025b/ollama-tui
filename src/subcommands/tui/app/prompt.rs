@@ -1,7 +1,9 @@
+use std::path::PathBuf;
+
 use super::{App, ChatMessage, PendingRequest};
-use crate::llm::RouteDecision;
+use crate::llm::{Provider, RouteDecision};
 use crate::routing::Router;
-use crate::subcommands::tui::slash_commands::{self, ParseResult, handlers};
+use crate::subcommands::tui::slash_commands::{self, ExternalAction, ParseResult, handlers};
 
 impl App {
     /// Try to submit the current prompt.
@@ -36,6 +38,25 @@ impl App {
         } else {
             route.reason.clone()
         };
+
+        if let Some(action) = self.terminal_action_for_route(&route) {
+            self.session.input.clear();
+            self.ui.scroll_offset = 0;
+            self.ui.status = format!("Opening {model_name}...");
+            self.session.history.push(ChatMessage {
+                prompt,
+                model_name,
+                route_reason,
+                answer: "Opened the terminal app in the project root. Continue the work there, then exit to return here.".to_string(),
+                in_progress: false,
+                failed: false,
+                include_in_context: false,
+                is_local_message: false,
+            });
+            self.trim_history();
+            self.commands.queue_external_action(action);
+            return None;
+        }
 
         self.session.input.clear();
         self.session.waiting_for_model = true;
@@ -93,7 +114,28 @@ impl App {
         self.routing.router.route(prompt)
     }
 
+    fn terminal_action_for_route(&self, route: &RouteDecision) -> Option<ExternalAction> {
+        let working_dir = self
+            .runtime
+            .paths()
+            .project_root()
+            .map(PathBuf::from)
+            .unwrap_or_else(|| PathBuf::from("."));
+
+        match route.model.provider {
+            Provider::ClaudeCode => Some(ExternalAction::ClaudeCode { working_dir }),
+            Provider::Codex => Some(ExternalAction::CodexCli { working_dir }),
+            Provider::Ollama => None,
+        }
+    }
+
     fn prompt_for_model(&self, prompt: &str) -> String {
-        self.rules.prompt_with_rules(prompt)
+        let notes = self.memory.notes_prompt_prefix();
+        let effective_prompt = if notes.is_empty() {
+            prompt.to_string()
+        } else {
+            format!("{notes}\n{prompt}")
+        };
+        self.rules.prompt_with_rules(&effective_prompt)
     }
 }

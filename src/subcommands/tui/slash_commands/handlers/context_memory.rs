@@ -5,6 +5,7 @@ use crate::subcommands::tui::slash_commands::parser::ParsedCommand;
 
 const BOOKMARK_USAGE: &str = "Usage: /bookmark [add|remove]";
 const MEMORY_USAGE: &str = "Usage: /memory [show|clear]";
+const PIN_USAGE: &str = "Usage: /pin <project memory note>";
 
 pub fn context_command(app: &mut App, command: &ParsedCommand) {
     app.append_local_message(command.raw(), context_report(app));
@@ -40,10 +41,20 @@ pub fn memory_command(app: &mut App, command: &ParsedCommand) {
             app.ui.status = "Displayed memory.".to_string();
         }
         "clear" | "forget" => {
-            let count = app.clear_context_memory();
+            let session_count = app.clear_context_memory();
+            let persistent_count = match app.clear_persistent_memory() {
+                Ok(count) => count,
+                Err(error) => {
+                    app.append_local_message(command.raw(), error);
+                    app.ui.status = "Could not clear project memory.".to_string();
+                    return;
+                }
+            };
             app.append_local_message(
                 command.raw(),
-                format!("Forgot {count} turn(s) from future context."),
+                format!(
+                    "Forgot {session_count} session turn(s) and {persistent_count} project memory item(s)."
+                ),
             );
             app.ui.status = "Cleared context memory.".to_string();
         }
@@ -51,16 +62,49 @@ pub fn memory_command(app: &mut App, command: &ParsedCommand) {
     }
 }
 
+pub fn pin_command(app: &mut App, command: &ParsedCommand) {
+    let note = command.args().join(" ");
+    if note.trim().is_empty() {
+        show_usage(app, command.raw(), PIN_USAGE, "Missing memory note.");
+        return;
+    }
+
+    match app.pin_memory_note(note.trim()) {
+        Ok(()) => {
+            app.append_local_message(command.raw(), format!("Pinned memory: {}", preview(&note)));
+            app.ui.status = "Pinned project memory.".to_string();
+        }
+        Err(error) => {
+            app.append_local_message(command.raw(), error);
+            app.ui.status = "Could not pin project memory.".to_string();
+        }
+    }
+}
+
 fn set_latest_bookmark(app: &mut App, input: &str, remember: bool) {
-    match app.include_latest_history_entry(remember) {
-        Some(prompt) => {
-            let verb = if remember { "Bookmarked" } else { "Removed" };
+    let result = if remember {
+        app.remember_latest_history_entry()
+    } else {
+        app.forget_latest_history_entry()
+    };
+
+    match result {
+        Ok(Some(prompt)) => {
+            let verb = if remember {
+                "Bookmarked"
+            } else {
+                "Removed bookmark"
+            };
             app.append_local_message(input, format!("{verb}: {}", preview(&prompt)));
             app.ui.status = bookmark_status(remember).to_string();
         }
-        None => {
+        Ok(None) => {
             app.append_local_message(input, "No completed model turn to update.".to_string());
             app.ui.status = "No bookmark target.".to_string();
+        }
+        Err(error) => {
+            app.append_local_message(input, error);
+            app.ui.status = "Could not update project memory.".to_string();
         }
     }
 }
@@ -93,12 +137,8 @@ fn context_report(app: &App) -> String {
         .iter()
         .filter(|entry| ready_for_context(entry))
         .count();
-    let next = entries
-        .iter()
-        .rev()
-        .filter(|entry| ready_for_context(entry))
-        .take(MAX_CONTEXT_TURNS)
-        .count();
+    let next = app.conversation_context().len();
+    let project_memory = app.memory.items().len();
 
     let mut report = String::new();
     let _ = writeln!(
@@ -107,6 +147,7 @@ fn context_report(app: &App) -> String {
         MAX_CONTEXT_TURNS
     );
     let _ = writeln!(report, "Remembered turns: {remembered}/{model_turns}");
+    let _ = writeln!(report, "Project memory items: {project_memory}");
     if let Some(last) = entries.iter().rev().find(|entry| ready_for_context(entry)) {
         let _ = writeln!(report, "Latest remembered: {}", preview(&last.prompt));
     }
@@ -115,19 +156,37 @@ fn context_report(app: &App) -> String {
 
 fn memory_report(app: &App) -> String {
     let mut report = context_report(app);
-    report.push_str("\nUse /bookmark to remember the latest turn.\n");
-    report.push_str("Use /memory clear to forget remembered turns.");
+    report.push('\n');
+    if app.memory.items().is_empty() {
+        report.push_str("Project memory: empty\n");
+    } else {
+        let _ = writeln!(
+            report,
+            "Project memory: {} item(s)",
+            app.memory.items().len()
+        );
+        for (index, item) in app.memory.items().iter().rev().take(8).enumerate() {
+            let _ = writeln!(
+                report,
+                "{}. [{}] {}",
+                index + 1,
+                item.label(),
+                preview(item.display_content())
+            );
+        }
+    }
+    report.push_str("\nUse /bookmark to persist the latest turn.\n");
+    report.push_str("Use /pin <note> to persist a project note.\n");
+    report.push_str("Use /memory clear to forget session and project memory.");
     report
 }
 
 fn token_report(app: &App) -> String {
     let entries = &app.session.history;
-    let next_tokens: usize = entries
+    let next_tokens: usize = app
+        .conversation_context()
         .iter()
-        .rev()
-        .filter(|entry| ready_for_context(entry))
-        .take(MAX_CONTEXT_TURNS)
-        .map(entry_tokens)
+        .map(|turn| estimate_tokens(&turn.user) + estimate_tokens(&turn.assistant))
         .sum();
     let total_tokens: usize = entries
         .iter()

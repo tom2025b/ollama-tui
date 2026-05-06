@@ -14,12 +14,10 @@ pub struct ConversationTurn {
 pub enum Provider {
     /// A local Ollama server.
     Ollama,
-    /// Anthropic's Claude API.
-    Anthropic,
-    /// OpenAI's API.
-    OpenAi,
-    /// xAI's Grok API.
-    Xai,
+    /// Claude Code terminal app.
+    ClaudeCode,
+    /// Codex terminal app.
+    Codex,
 }
 
 impl Provider {
@@ -27,9 +25,8 @@ impl Provider {
     pub fn label(&self) -> &'static str {
         match self {
             Provider::Ollama => "Ollama",
-            Provider::Anthropic => "Anthropic",
-            Provider::OpenAi => "OpenAI",
-            Provider::Xai => "xAI",
+            Provider::ClaudeCode => "Claude Code",
+            Provider::Codex => "Codex",
         }
     }
 }
@@ -45,7 +42,7 @@ pub struct LanguageModel {
     pub strengths: Vec<String>,
     /// Whether the router is allowed to choose this model right now.
     pub enabled: bool,
-    /// Short setup note shown when a model is not currently usable.
+    /// Short note shown when a model is not currently usable.
     pub disabled_reason: Option<String>,
 }
 
@@ -55,15 +52,15 @@ impl LanguageModel {
         Self::new(Provider::Ollama, name, strengths, true, None)
     }
 
-    /// Build a Claude model entry.
-    pub fn anthropic(
+    /// Build a Claude Code route target.
+    pub fn claude_code(
         name: &str,
         strengths: &[&str],
         enabled: bool,
         disabled_reason: Option<String>,
     ) -> Self {
         Self::new(
-            Provider::Anthropic,
+            Provider::ClaudeCode,
             name,
             strengths,
             enabled,
@@ -71,24 +68,14 @@ impl LanguageModel {
         )
     }
 
-    /// Build an OpenAI model entry.
-    pub fn openai(
+    /// Build a Codex route target.
+    pub fn codex(
         name: &str,
         strengths: &[&str],
         enabled: bool,
         disabled_reason: Option<String>,
     ) -> Self {
-        Self::new(Provider::OpenAi, name, strengths, enabled, disabled_reason)
-    }
-
-    /// Build an xAI model entry.
-    pub fn xai(
-        name: &str,
-        strengths: &[&str],
-        enabled: bool,
-        disabled_reason: Option<String>,
-    ) -> Self {
-        Self::new(Provider::Xai, name, strengths, enabled, disabled_reason)
+        Self::new(Provider::Codex, name, strengths, enabled, disabled_reason)
     }
 
     fn new(

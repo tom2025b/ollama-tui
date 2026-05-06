@@ -1,9 +1,9 @@
-use crate::providers::{anthropic, openai, xai};
-
 use super::environment::RuntimeEnvironment;
 
 /// Environment variable for the small local Ollama model.
 pub(crate) const FAST_OLLAMA_MODEL_ENV: &str = "OLLAMA_FAST_MODEL";
+pub(crate) const CLAUDE_CODE_MODEL_ENV: &str = "CLAUDE_CODE_MODEL";
+pub(crate) const CODEX_MODEL_ENV: &str = "CODEX_MODEL";
 
 /// Default fast local model.
 ///
@@ -11,6 +11,8 @@ pub(crate) const FAST_OLLAMA_MODEL_ENV: &str = "OLLAMA_FAST_MODEL";
 /// fallback, so short prompts work on a fresh setup. Set `OLLAMA_FAST_MODEL` to
 /// a smaller installed model if you want lower latency.
 pub(crate) const DEFAULT_FAST_OLLAMA_MODEL: &str = "llama3:latest";
+pub(crate) const DEFAULT_CLAUDE_CODE_MODEL: &str = "claude-sonnet-4-20250514";
+pub(crate) const DEFAULT_CODEX_MODEL: &str = "codex";
 
 #[derive(Clone, Debug)]
 pub(crate) struct RuntimeConfig {
@@ -35,9 +37,8 @@ impl RuntimeConfig {
 #[derive(Clone, Debug)]
 pub(crate) struct ModelRuntimeConfig {
     fast_ollama_model: String,
-    anthropic: CloudProviderRuntimeConfig,
-    openai: CloudProviderRuntimeConfig,
-    xai: CloudProviderRuntimeConfig,
+    claude_code: TerminalAppRuntimeConfig,
+    codex: TerminalAppRuntimeConfig,
 }
 
 impl ModelRuntimeConfig {
@@ -49,26 +50,15 @@ impl ModelRuntimeConfig {
             fast_ollama_model: environment
                 .var(FAST_OLLAMA_MODEL_ENV)
                 .unwrap_or_else(|| DEFAULT_FAST_OLLAMA_MODEL.to_string()),
-            anthropic: CloudProviderRuntimeConfig::from_environment(
+            claude_code: TerminalAppRuntimeConfig::from_environment(
                 environment,
-                anthropic::ANTHROPIC_API_KEY_ENV,
-                anthropic::ANTHROPIC_MODEL_ENV,
-                anthropic::DEFAULT_ANTHROPIC_MODEL,
-                "Claude",
+                CLAUDE_CODE_MODEL_ENV,
+                DEFAULT_CLAUDE_CODE_MODEL,
             ),
-            openai: CloudProviderRuntimeConfig::from_environment(
+            codex: TerminalAppRuntimeConfig::from_environment(
                 environment,
-                openai::OPENAI_API_KEY_ENV,
-                openai::OPENAI_MODEL_ENV,
-                openai::DEFAULT_OPENAI_MODEL,
-                "GPT-4o",
-            ),
-            xai: CloudProviderRuntimeConfig::from_environment(
-                environment,
-                xai::XAI_API_KEY_ENV,
-                xai::XAI_MODEL_ENV,
-                xai::DEFAULT_XAI_MODEL,
-                "Grok",
+                CODEX_MODEL_ENV,
+                DEFAULT_CODEX_MODEL,
             ),
         }
     }
@@ -77,33 +67,25 @@ impl ModelRuntimeConfig {
         &self.fast_ollama_model
     }
 
-    pub(crate) fn anthropic(&self) -> &CloudProviderRuntimeConfig {
-        &self.anthropic
+    pub(crate) fn claude_code(&self) -> &TerminalAppRuntimeConfig {
+        &self.claude_code
     }
 
-    pub(crate) fn openai(&self) -> &CloudProviderRuntimeConfig {
-        &self.openai
-    }
-
-    pub(crate) fn xai(&self) -> &CloudProviderRuntimeConfig {
-        &self.xai
+    pub(crate) fn codex(&self) -> &TerminalAppRuntimeConfig {
+        &self.codex
     }
 }
 
 #[derive(Clone, Debug)]
-pub(crate) struct CloudProviderRuntimeConfig {
+pub(crate) struct TerminalAppRuntimeConfig {
     model_name: String,
-    configured: bool,
-    missing_configuration_reason: String,
 }
 
-impl CloudProviderRuntimeConfig {
+impl TerminalAppRuntimeConfig {
     fn from_environment<E>(
         environment: &E,
-        api_key_env: &'static str,
         model_env: &'static str,
         default_model: &'static str,
-        provider_label: &'static str,
     ) -> Self
     where
         E: RuntimeEnvironment + ?Sized,
@@ -112,20 +94,10 @@ impl CloudProviderRuntimeConfig {
             model_name: environment
                 .var(model_env)
                 .unwrap_or_else(|| default_model.to_string()),
-            configured: environment.var(api_key_env).is_some(),
-            missing_configuration_reason: format!("set {api_key_env} to enable {provider_label}"),
         }
     }
 
     pub(crate) fn model_name(&self) -> &str {
         &self.model_name
-    }
-
-    pub(crate) fn configured(&self) -> bool {
-        self.configured
-    }
-
-    pub(crate) fn missing_configuration_reason(&self) -> &str {
-        &self.missing_configuration_reason
     }
 }

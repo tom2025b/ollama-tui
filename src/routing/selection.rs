@@ -9,39 +9,24 @@ struct RoutePlan {
 const PRIVACY_REASON: &str =
     "The prompt contains privacy instructions or sensitive data markers, so I kept it on Ollama.";
 const CURRENT_CONTEXT_PLAN: RoutePlan = RoutePlan {
-    providers: &[
-        Provider::Xai,
-        Provider::OpenAi,
-        Provider::Anthropic,
-        Provider::Ollama,
-    ],
-    reason: "This asks for current or public-context reasoning, so I preferred Grok and then fell back by availability.",
+    providers: &[Provider::Codex, Provider::ClaudeCode, Provider::Ollama],
+    reason: "This asks for current or public-context reasoning, so I preferred Codex and then fell back by availability.",
 };
 const DEEP_REASONING_PLAN: RoutePlan = RoutePlan {
-    providers: &[
-        Provider::Anthropic,
-        Provider::OpenAi,
-        Provider::Xai,
-        Provider::Ollama,
-    ],
-    reason: "This looks like coding, debugging, planning, or deep reasoning, so I preferred Claude and then fell back by availability.",
+    providers: &[Provider::ClaudeCode, Provider::Codex, Provider::Ollama],
+    reason: "This looks like coding, debugging, planning, or deep reasoning, so I preferred Claude Code and then fell back by availability.",
 };
 const CREATIVE_OR_GENERAL_PLAN: RoutePlan = RoutePlan {
-    providers: &[
-        Provider::OpenAi,
-        Provider::Anthropic,
-        Provider::Xai,
-        Provider::Ollama,
-    ],
-    reason: "This is a general or creative prompt, so I preferred GPT-4o and then fell back by availability.",
+    providers: &[Provider::Codex, Provider::ClaudeCode, Provider::Ollama],
+    reason: "This is a general or creative prompt, so I preferred Codex and then fell back by availability.",
 };
 const DEFAULT_GENERAL_PLAN: RoutePlan = RoutePlan {
-    providers: &[Provider::OpenAi, Provider::Anthropic, Provider::Ollama],
-    reason: "No special rule matched, so I chose the best configured general-purpose model.",
+    providers: &[Provider::Codex, Provider::ClaudeCode, Provider::Ollama],
+    reason: "No special rule matched, so I chose the best general-purpose terminal model.",
 };
 const SIMPLE_REASON: &str = "This is short/simple, so I chose the fast local Ollama model.";
 const NO_BACKEND_REASON: &str =
-    "No preferred cloud backend is configured, so I used the primary local Ollama model.";
+    "No preferred terminal backend is available, so I used the primary local Ollama model.";
 const EXACT_MODEL_UNAVAILABLE_REASON: &str =
     "The preferred exact model is not enabled, so I used the primary local Ollama model.";
 
@@ -73,7 +58,7 @@ impl ModelRouter {
             );
         }
 
-        if profile.is_creative_or_general_cloud {
+        if profile.is_creative_or_general_terminal {
             return self.choose_from_plan(&CREATIVE_OR_GENERAL_PLAN);
         }
 

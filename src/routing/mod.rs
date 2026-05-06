@@ -21,16 +21,15 @@ pub trait Router {
 
     /// Return every model the router knows about.
     ///
-    /// The TUI uses this for visibility into enabled and disabled backends.
+    /// The TUI uses this for visibility into route targets.
     fn models(&self) -> &[LanguageModel];
 }
 
 /// Chooses the best available model for a prompt.
 ///
 /// The router is intentionally readable. It classifies the prompt with simple
-/// rules, then selects the best configured model for that class. If a cloud API
-/// key is missing, the router falls back to a local Ollama model instead of
-/// choosing a backend that cannot run.
+/// rules, then selects the best model or terminal app for that class. Claude
+/// Code and Codex launch as terminal apps instead of API-backed providers.
 pub struct ModelRouter {
     /// Ordered list of models.
     ///

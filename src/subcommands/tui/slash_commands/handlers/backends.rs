@@ -10,44 +10,39 @@ pub fn backends_command(app: &mut App, command: &ParsedCommand) {
 }
 
 fn backends_report(app: &App) -> String {
-    [
-        Provider::Ollama,
-        Provider::Anthropic,
-        Provider::OpenAi,
-        Provider::Xai,
-    ]
-    .iter()
-    .map(|provider| {
-        let models = app
-            .models()
-            .iter()
-            .filter(|model| model.provider == *provider)
-            .collect::<Vec<_>>();
-        let enabled_count = models.iter().filter(|model| model.enabled).count();
-        let status = if enabled_count > 0 {
-            "available"
-        } else {
-            "not configured"
-        };
-        let notes = models
-            .iter()
-            .filter_map(|model| model.disabled_reason.as_deref())
-            .collect::<Vec<_>>();
-        let note = if notes.is_empty() {
-            "ready".to_string()
-        } else {
-            notes.join("; ")
-        };
+    [Provider::Ollama, Provider::ClaudeCode, Provider::Codex]
+        .iter()
+        .map(|provider| {
+            let models = app
+                .models()
+                .iter()
+                .filter(|model| model.provider == *provider)
+                .collect::<Vec<_>>();
+            let enabled_count = models.iter().filter(|model| model.enabled).count();
+            let status = if enabled_count > 0 {
+                "available"
+            } else {
+                "offline"
+            };
+            let notes = models
+                .iter()
+                .filter_map(|model| model.disabled_reason.as_deref())
+                .collect::<Vec<_>>();
+            let note = if notes.is_empty() {
+                "ready".to_string()
+            } else {
+                notes.join("; ")
+            };
 
-        format!(
-            "{}: {} ({}/{}) - {}",
-            provider.label(),
-            status,
-            enabled_count,
-            models.len(),
-            note
-        )
-    })
-    .collect::<Vec<_>>()
-    .join("\n")
+            format!(
+                "{}: {} ({}/{}) - {}",
+                provider.label(),
+                status,
+                enabled_count,
+                models.len(),
+                note
+            )
+        })
+        .collect::<Vec<_>>()
+        .join("\n")
 }

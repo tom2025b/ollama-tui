@@ -3,7 +3,7 @@ use anyhow::Result;
 use super::line::process_anthropic_stream_line;
 
 /// Process complete SSE lines currently in the stream buffer.
-pub(in crate::anthropic) fn process_anthropic_stream_buffer<F>(
+pub(in crate::providers::anthropic) fn process_anthropic_stream_buffer<F>(
     buffer: &mut String,
     answer: &mut String,
     on_token: &mut F,
@@ -20,7 +20,7 @@ where
 }
 
 /// Process any final unterminated SSE line left after the response ends.
-pub(in crate::anthropic) fn process_final_anthropic_stream_buffer<F>(
+pub(in crate::providers::anthropic) fn process_final_anthropic_stream_buffer<F>(
     buffer: &mut String,
     answer: &mut String,
     on_token: &mut F,

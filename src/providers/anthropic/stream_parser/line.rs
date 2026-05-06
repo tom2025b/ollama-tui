@@ -3,7 +3,7 @@ use anyhow::{Context, Result};
 use super::types::AnthropicStreamEvent;
 
 /// Parse one Anthropic SSE line and emit any text delta.
-pub(in crate::anthropic) fn process_anthropic_stream_line<F>(
+pub(in crate::providers::anthropic) fn process_anthropic_stream_line<F>(
     line: &str,
     answer: &mut String,
     on_token: &mut F,

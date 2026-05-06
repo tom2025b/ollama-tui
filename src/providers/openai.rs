@@ -3,7 +3,7 @@ use std::env;
 use anyhow::Result;
 
 use crate::llm::ConversationTurn;
-use crate::openai_compatible::ChatCompletionsClient;
+use crate::providers::openai_compatible::ChatCompletionsClient;
 
 /// OpenAI API key environment variable.
 pub const OPENAI_API_KEY_ENV: &str = "OPENAI_API_KEY";

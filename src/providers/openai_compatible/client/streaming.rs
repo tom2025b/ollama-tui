@@ -2,11 +2,11 @@ use anyhow::{Context, Result};
 
 use super::ChatCompletionsClient;
 use crate::llm::{ConversationTurn, append_utf8_chunk, finish_utf8_stream};
-use crate::openai_compatible::http::require_success;
-use crate::openai_compatible::stream::{
+use crate::providers::openai_compatible::http::require_success;
+use crate::providers::openai_compatible::stream::{
     process_chat_completion_stream_buffer, process_final_chat_completion_stream_buffer,
 };
-use crate::openai_compatible::types::ChatCompletionRequest;
+use crate::providers::openai_compatible::types::ChatCompletionRequest;
 
 impl ChatCompletionsClient {
     /// Stream a prompt with bounded conversation context.

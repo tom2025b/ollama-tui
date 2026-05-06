@@ -2,9 +2,11 @@ use anyhow::{Context, Result};
 
 use super::OllamaClient;
 use crate::llm::{ConversationTurn, append_utf8_chunk, finish_utf8_stream};
-use crate::ollama::http::{connection_error, require_success};
-use crate::ollama::stream::{process_final_ollama_stream_buffer, process_ollama_stream_buffer};
-use crate::ollama::types::ChatRequest;
+use crate::providers::ollama::http::{connection_error, require_success};
+use crate::providers::ollama::stream::{
+    process_final_ollama_stream_buffer, process_ollama_stream_buffer,
+};
+use crate::providers::ollama::types::ChatRequest;
 
 impl OllamaClient {
     pub(super) async fn stream_without_model_check<F>(

@@ -3,7 +3,7 @@ use anyhow::{Context, Result};
 use super::types::ChatStreamChunk;
 
 /// Parse one Ollama streaming JSON line and emit its content delta.
-pub(in crate::ollama) fn process_ollama_stream_line<F>(
+pub(in crate::providers::ollama) fn process_ollama_stream_line<F>(
     line: &str,
     answer: &mut String,
     on_token: &mut F,

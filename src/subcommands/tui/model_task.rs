@@ -1,11 +1,9 @@
 use tokio::sync::mpsc;
 
 use crate::{
-    anthropic,
     llm::Provider,
-    ollama, openai,
+    providers::{anthropic, ollama, openai, xai},
     subcommands::tui::app::{ModelEvent, PendingRequest},
-    xai,
 };
 
 /// Run the selected model without blocking the TUI.

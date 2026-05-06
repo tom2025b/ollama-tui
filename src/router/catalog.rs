@@ -1,6 +1,9 @@
 use std::env;
 
-use crate::{anthropic, llm::LanguageModel, openai, xai};
+use crate::{
+    llm::LanguageModel,
+    providers::{anthropic, openai, xai},
+};
 
 use super::ModelRouter;
 

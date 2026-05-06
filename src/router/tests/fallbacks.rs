@@ -1,6 +1,6 @@
 use super::super::*;
 use super::support::{disabled_model, enabled_model, router_with_models};
-use crate::{anthropic, openai, xai};
+use crate::providers::{anthropic, openai, xai};
 
 #[test]
 fn simple_prompt_chooses_fast_ollama_model() {

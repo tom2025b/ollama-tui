@@ -1,8 +1,8 @@
 use anyhow::{Context, Result};
 
 use super::OllamaClient;
-use crate::ollama::http::{connection_error, require_success};
-use crate::ollama::models::{OllamaModel, TagsResponse, ensure_model_name_is_available};
+use crate::providers::ollama::http::{connection_error, require_success};
+use crate::providers::ollama::models::{OllamaModel, TagsResponse, ensure_model_name_is_available};
 
 impl OllamaClient {
     /// Ask Ollama which models are installed locally.

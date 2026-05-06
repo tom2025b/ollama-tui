@@ -1,6 +1,6 @@
 use super::super::*;
 use super::support::{enabled_model, router_with_models};
-use crate::{anthropic, openai, xai};
+use crate::providers::{anthropic, openai, xai};
 
 #[test]
 fn privacy_prompt_stays_on_primary_ollama() {

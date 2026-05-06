@@ -3,7 +3,7 @@ use anyhow::Result;
 use super::line::process_chat_completion_stream_line;
 
 /// Process complete SSE lines currently in the stream buffer.
-pub(in crate::openai_compatible) fn process_chat_completion_stream_buffer<F>(
+pub(in crate::providers::openai_compatible) fn process_chat_completion_stream_buffer<F>(
     provider_name: &'static str,
     buffer: &mut String,
     answer: &mut String,
@@ -21,7 +21,7 @@ where
 }
 
 /// Process a final unterminated SSE line left after the stream ends.
-pub(in crate::openai_compatible) fn process_final_chat_completion_stream_buffer<F>(
+pub(in crate::providers::openai_compatible) fn process_final_chat_completion_stream_buffer<F>(
     provider_name: &'static str,
     buffer: &mut String,
     answer: &mut String,

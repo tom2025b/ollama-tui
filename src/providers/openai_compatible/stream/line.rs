@@ -3,7 +3,7 @@ use anyhow::{Context, Result};
 use super::types::ChatCompletionStreamResponse;
 
 /// Parse one OpenAI-compatible SSE line and emit any content delta.
-pub(in crate::openai_compatible) fn process_chat_completion_stream_line<F>(
+pub(in crate::providers::openai_compatible) fn process_chat_completion_stream_line<F>(
     provider_name: &'static str,
     line: &str,
     answer: &mut String,

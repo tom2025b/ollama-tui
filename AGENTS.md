@@ -14,6 +14,6 @@ This codebase is being deliberately evolved into a clean, professional, modular 
 - My private version can contain my personal chaos tools.
 
 **Our Long-term Goal:**
-Turn `ollama-tui` into the main `ai-suite` binary that supports multiple subcommands (`tui`, `swarm`, `food`, etc.) while remaining highly modular.
+`ai-suite` is a single binary that supports multiple subcommands (`tui`, `swarm`, `food`, etc.) while remaining highly modular.
 
 Any AI working in this codebase must respect these rules.

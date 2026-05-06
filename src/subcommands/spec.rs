@@ -1,22 +1,21 @@
-use std::future::Future;
-use std::pin::Pin;
+use clap::{Args, Subcommand};
 
-use anyhow::Result;
-use clap::Subcommand;
-
-use crate::runtime::Runtime;
-
-#[derive(Debug, Clone, Copy, PartialEq, Eq, Subcommand)]
+#[derive(Debug, Clone, PartialEq, Eq, Subcommand)]
 pub enum SubcommandId {
     /// Launch the interactive terminal UI.
     Tui,
 
-    /// Run the swarm orchestration tool.
-    Swarm,
+    /// Run a task on the local AI stack, or show readiness if no task is given.
+    Swarm(SwarmArgs),
 
     /// Run the food planning tool.
     Food,
 }
 
-pub type SubcommandFuture<'a> = Pin<Box<dyn Future<Output = Result<()>> + 'a>>;
-pub type SubcommandRunner = for<'a> fn(&'a Runtime) -> SubcommandFuture<'a>;
+/// Arguments for the `swarm` subcommand.
+#[derive(Debug, Clone, PartialEq, Eq, Args, Default)]
+pub struct SwarmArgs {
+    /// Task to route and run on the local Ollama stack. Omit for a readiness report.
+    #[arg(value_name = "TASK")]
+    pub task: Option<String>,
+}

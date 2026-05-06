@@ -1,5 +1,6 @@
 pub mod bootstrap;
 
+mod cli;
 mod llm;
 mod prompt_rules;
 mod providers;

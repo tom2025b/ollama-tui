@@ -1,9 +1,12 @@
 use crate::subcommands::tui::slash_commands::parser::ParsedCommand;
 
 use super::code_block::{last_assistant_message, last_code_block};
-use super::session::CommandContext;
+use super::session::{CommandContext, CommandOutput, HistoryView, PromptStaging};
 
-pub fn handle_fix_command(context: &mut dyn CommandContext, command: &ParsedCommand) {
+pub fn handle_fix_command<C>(context: &mut C, command: &ParsedCommand)
+where
+    C: CommandOutput + HistoryView + PromptStaging + ?Sized,
+{
     if let Some(code_block) = last_code_block(context) {
         context.stage_prompt_for_model(fix_code_prompt(&code_block));
         context.set_status("Asking the model to fix the last code block...".to_string());
@@ -21,6 +24,10 @@ pub fn handle_fix_command(context: &mut dyn CommandContext, command: &ParsedComm
         "Nothing to fix yet. Send a prompt or paste some code first, then run /fix.".to_string(),
     );
     context.set_status("No prior message to fix.".to_string());
+}
+
+pub fn execute_fix_command(context: &mut dyn CommandContext, command: &ParsedCommand) {
+    handle_fix_command(context, command);
 }
 
 fn fix_code_prompt(code_block: &str) -> String {

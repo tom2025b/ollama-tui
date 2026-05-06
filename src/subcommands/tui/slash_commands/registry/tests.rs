@@ -92,13 +92,10 @@ fn registry_help_uses_current_command_definitions() {
     assert_eq!(
         names,
         vec![
-            "/claude",
             "/clear",
-            "/codex",
             "/explain",
             "/model",
             "/backend",
-            "/cost",
             "/rules",
             "/help",
             "/history",
@@ -124,6 +121,6 @@ fn registry_builds_available_commands_from_definitions() {
 
     assert_eq!(
         registry.available_commands(),
-        "/claude, /clear, /codex, /explain, /model, /backend, /cost, /rules, /help, /history, /fix, /review, /quit, /context, /tokens, /bookmark, /memory, /summary, /export, /theme, /resize"
+        "/clear, /explain, /model, /backend, /rules, /help, /history, /fix, /review, /quit, /context, /tokens, /bookmark, /memory, /summary, /export, /theme, /resize"
     );
 }

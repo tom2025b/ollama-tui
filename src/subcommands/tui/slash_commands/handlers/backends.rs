@@ -1,15 +1,25 @@
 use crate::llm::Provider;
 
-use super::session::CommandContext;
+use super::session::{CommandContext, CommandOutput, ModelCatalog};
 use crate::subcommands::tui::slash_commands::parser::ParsedCommand;
 
-pub fn handle_backends_command(context: &mut dyn CommandContext, command: &ParsedCommand) {
+pub fn handle_backends_command<C>(context: &mut C, command: &ParsedCommand)
+where
+    C: CommandOutput + ModelCatalog + ?Sized,
+{
     let report = backends_report(context);
     context.append_local_message(command.raw(), report);
     context.set_status("Listed backend status.".to_string());
 }
 
-fn backends_report(context: &dyn CommandContext) -> String {
+pub fn execute_backends_command(context: &mut dyn CommandContext, command: &ParsedCommand) {
+    handle_backends_command(context, command);
+}
+
+fn backends_report<C>(context: &C) -> String
+where
+    C: ModelCatalog + ?Sized,
+{
     [
         Provider::Ollama,
         Provider::Anthropic,

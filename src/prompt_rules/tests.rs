@@ -24,6 +24,7 @@ fn prompt_is_unchanged_when_rules_are_disabled() {
             raw_content: "Prefer short answers.".to_string(),
         }),
         project_root: None,
+        project_rules_path: PathBuf::from("/tmp/project-rules.md"),
         project_rules: None,
         load_warnings: Vec::new(),
     };

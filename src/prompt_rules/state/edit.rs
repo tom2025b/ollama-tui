@@ -1,7 +1,6 @@
-use std::{env, fs, io, path::PathBuf};
+use std::{fs, io, path::PathBuf};
 
 use super::RulesState;
-use crate::prompt_rules::paths::home_dir;
 use crate::prompt_rules::storage::default_rules_template;
 use crate::prompt_rules::target::RulesTarget;
 
@@ -23,10 +22,6 @@ impl RulesState {
     }
 
     pub(in crate::prompt_rules) fn project_edit_path(&self) -> PathBuf {
-        self.project_root
-            .clone()
-            .unwrap_or_else(|| env::current_dir().unwrap_or_else(|_| home_dir()))
-            .join(".ollama-me")
-            .join("rules.md")
+        self.project_rules_path.clone()
     }
 }

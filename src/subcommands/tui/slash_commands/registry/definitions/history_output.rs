@@ -13,7 +13,7 @@ pub(super) const COMMANDS: &[CommandDefinition] = &[
             name: "/summary",
             visible: true,
         }],
-        executor: handlers::history_output::handle_summary_command,
+        executor: handlers::history_output::execute_summary_command,
     },
     CommandDefinition {
         id: CommandId::Export,
@@ -24,6 +24,6 @@ pub(super) const COMMANDS: &[CommandDefinition] = &[
             name: "/export",
             visible: true,
         }],
-        executor: handlers::history_output::handle_export_command,
+        executor: handlers::history_output::execute_export_command,
     },
 ];

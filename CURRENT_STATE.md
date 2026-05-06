@@ -1,7 +1,48 @@
-# Current State After Step 8
+# Current State After Completing All 12 Migration Steps
 
-This document captures the actual project structure after completing migration
-Step 8. It describes what exists now, not the full future architecture.
+This document captures the actual project structure after completing all 12
+steps of the migration plan. It describes what exists now, what remains stubbed,
+and the verification state after the final cleanup pass.
+
+## Summary
+
+The `ollama-tui` codebase has been migrated into a modular Rust library and
+binary architecture for `ai-suite`.
+
+The package is still named `ollama-me`, but the public binary target is now
+`ai-suite` and the library crate is `ai_suite`.
+
+The current top-level command surface is:
+
+```text
+ai-suite
+ai-suite tui
+ai-suite swarm
+ai-suite food
+```
+
+The TUI remains the only implemented user-facing experience. `swarm` and
+`food` are real top-level subcommand modules, but they are intentionally stubbed
+and currently print not-implemented messages.
+
+Shared AI concerns have been split away from the TUI:
+
+- Provider-neutral LLM types live under `src/llm.rs` and `src/llm/`.
+- Concrete model providers live under `src/providers/`.
+- Routing lives under `src/routing/`.
+- Prompt rule logic lives under `src/prompt_rules/`.
+- Conversation history lives under `src/storage/`.
+- Runtime config and path decisions live under `src/runtime/`.
+- Provider-neutral tool interfaces live under `src/tools/`.
+- Public/private extension hooks live under `src/extensions/`.
+
+The final cleanup pass is complete:
+
+- `cargo fmt --check` passes.
+- `cargo clippy --all-targets -- -D warnings` passes.
+- `cargo check` passes.
+- `cargo test` passes with `112 passed; 0 failed; 4 ignored`.
+- All Rust source files are under the 400-line project limit.
 
 ## Completed Migration Steps
 
@@ -15,8 +56,12 @@ Step 8. It describes what exists now, not the full future architecture.
 6. Moved history under `src/storage/`.
 7. Added top-level CLI parsing with `clap`.
 8. Added basic subcommand contracts and registry.
+9. Added real stub modules for `swarm` and `food`.
+10. Added initial provider-neutral tool architecture interfaces.
+11. Added initial extension architecture interfaces.
+12. Completed the final cleanup pass.
 
-Latest migration commit:
+Latest committed migration step before the current Step 12 work:
 
 ```text
 08743cd refactor: step 8 - add subcommand contracts
@@ -59,8 +104,8 @@ Behavior:
 - `ai-suite swarm` prints `swarm is not implemented yet`.
 - `ai-suite food` prints `food is not implemented yet`.
 
-`swarm` and `food` are parsed and dispatched, but their real subcommand modules
-have not been created yet. That is planned for Step 9.
+`swarm` and `food` are parsed and dispatched through real stub subcommand
+modules. Their feature implementations have not been created yet.
 
 ## Current Folder Structure
 
@@ -74,6 +119,12 @@ src/
     mod.rs
     args.rs
     dispatch.rs
+
+  runtime/
+    mod.rs
+    environment.rs
+    config.rs
+    paths.rs
 
   subcommands/
     mod.rs
@@ -93,7 +144,20 @@ src/
 
       app/
       ui/
+        theme/
+          mod.rs
+          colors.rs
+          styles.rs
+          blocks.rs
       slash_commands/
+
+    swarm/
+      mod.rs
+      run.rs
+
+    food/
+      mod.rs
+      run.rs
 
   llm.rs
   llm/
@@ -107,6 +171,7 @@ src/
     anthropic/
     ollama/
     openai_compatible/
+    execution.rs
     openai.rs
     xai.rs
 
@@ -122,7 +187,6 @@ src/
   prompt_rules/
     mod.rs
     content.rs
-    paths.rs
     prompt.rs
     report.rs
     state.rs
@@ -134,6 +198,20 @@ src/
   storage/
     mod.rs
     history.rs
+
+  tools/
+    mod.rs
+    spec.rs
+    registry.rs
+    execution.rs
+    builtins/
+      mod.rs
+
+  extensions/
+    mod.rs
+    api.rs
+    public.rs
+    registry.rs
 ```
 
 ## Module Responsibilities
@@ -151,19 +229,40 @@ src/
 
 - `src/bootstrap.rs`
   - Top-level application runner.
+  - Builds the process `Runtime`.
   - Parses CLI args through `cli`.
   - Dispatches to the selected command.
+
+### Runtime
+
+- `src/runtime/mod.rs`
+  - Defines the `Runtime` value passed from bootstrap into command execution.
+  - Groups process-derived config and paths.
+
+- `src/runtime/environment.rs`
+  - Defines `RuntimeEnvironment`.
+  - Provides the process-backed implementation for env and current-dir reads.
+
+- `src/runtime/config.rs`
+  - Owns model catalog configuration derived from env.
+  - Centralizes `OLLAMA_FAST_MODEL`, cloud model override, and cloud API-key
+    presence checks used by routing.
+
+- `src/runtime/paths.rs`
+  - Owns home/current/project path decisions.
+  - Provides global/project rules paths, history export paths, and user-path
+    expansion.
 
 ### CLI
 
 - `src/cli/args.rs`
-  - Defines `Cli` and `CliCommand`.
+  - Defines `Cli`.
   - Owns `clap` parsing.
 
 - `src/cli/dispatch.rs`
-  - Converts parsed CLI commands into execution.
-  - Dispatch remains explicit for now.
-  - Uses the subcommand registry as a consistency check.
+  - Thin adapter from parsed CLI args to the subcommand registry.
+  - Receives the process `Runtime`.
+  - Uses the registry for default command selection and execution.
 
 - `src/cli/mod.rs`
   - Small module facade for CLI parsing and dispatch.
@@ -171,26 +270,29 @@ src/
 ### Subcommands
 
 - `src/subcommands/spec.rs`
-  - Defines the initial simple `Subcommand` trait:
-
-```rust
-pub trait Subcommand {
-    fn name(&self) -> &'static str;
-}
-```
+  - Defines the top-level `SubcommandId` parsed by the CLI.
+  - Defines focused runner type aliases for subcommand execution.
 
 - `src/subcommands/registry.rs`
-  - Lists built-in command names:
+  - Owns built-in command names, default command selection, and runner
+    entrypoints:
     - `tui`
     - `swarm`
     - `food`
-  - Provides `names()` and `contains()`.
   - Includes registry tests.
 
 - `src/subcommands/tui/`
   - Owns all current TUI behavior.
   - Contains the app state, UI rendering, input handling, terminal setup,
     external actions, model task orchestration, and TUI slash commands.
+
+- `src/subcommands/swarm/`
+  - Stub top-level `swarm` command module.
+  - Currently prints `swarm is not implemented yet`.
+
+- `src/subcommands/food/`
+  - Stub top-level `food` command module.
+  - Currently prints `food is not implemented yet`.
 
 ### Core AI Modules
 
@@ -207,35 +309,61 @@ pub trait Subcommand {
 
 - `src/routing/`
   - Model selection and routing rules.
+  - Builds its catalog from `RuntimeConfig` instead of reading env vars.
 
 - `src/prompt_rules/`
   - Prompt rule loading, storage, reporting, editing, and prompt injection.
+  - Loads and edits rules from `RuntimePaths`.
 
 - `src/storage/`
   - Shared persistence modules.
   - Currently contains conversation history.
+  - History export path handling is driven by `RuntimePaths`.
 
-## Not Created Yet
+### Tools
 
-These folders are part of the target architecture but do not exist yet:
+- `src/tools/spec.rs`
+  - Defines provider-neutral tool metadata through `ToolDefinition`.
+  - Defines the initial `Tool` trait.
 
-```text
-src/runtime/
-src/config/
-src/tools/
-src/extensions/
-src/subcommands/swarm/
-src/subcommands/food/
-```
+- `src/tools/execution.rs`
+  - Defines `ToolInvocation`, `ToolInput`, and `ToolOutput`.
+  - Keeps execution request and response types independent of any provider.
+
+- `src/tools/registry.rs`
+  - Defines `ToolRegistry`.
+  - Supports registering tools, resolving tools by name, listing definitions,
+    and rejecting duplicate names.
+
+- `src/tools/builtins/`
+  - Provides the built-in tool registration entrypoint.
+  - Currently registers no tools.
+
+### Extensions
+
+- `src/extensions/api.rs`
+  - Defines the initial `ExtensionPack` trait.
+  - Allows extension packs to register provider-neutral tools.
+
+- `src/extensions/public.rs`
+  - Defines the public extension pack for the clean public build.
+  - Currently registers no tools.
+
+- `src/extensions/registry.rs`
+  - Defines `ExtensionRegistry`.
+  - Provides a `public()` registry containing only the public extension pack.
+  - Applies registered extension packs to a `ToolRegistry`.
 
 ## Verification State
 
-After Step 8:
+After the subcommand registry cleanup:
 
 ```text
 cargo fmt --check
+cargo clippy --all-targets -- -D warnings
 cargo check
 cargo test
+find src -name '*.rs' -exec wc -l {} +
 ```
 
 All passed.
@@ -243,15 +371,18 @@ All passed.
 Last observed test result:
 
 ```text
-97 passed; 0 failed; 4 ignored
+112 passed; 0 failed; 4 ignored
 ```
 
-Known warnings still exist from pre-existing TUI code:
+Strict clippy now passes with warnings treated as errors.
 
-- unused `register_commands` macro
-- unused `mut` in `ui/palette.rs`
-- unused `clear_conversation_command`
-- unused `CommandSpec` type alias
+Largest observed Rust source file:
+
+```text
+169 src/subcommands/tui/app/context.rs
+```
+
+All Rust source files are under the 400-line project limit.
 
 ## Working Tree Notes
 
@@ -264,19 +395,9 @@ SESSION_SUMMARY.md
 CURRENT_STATE.md
 ```
 
-These files are documentation/context only and are not part of the committed
-Step 8 source migration.
+Current migration cleanup and follow-up refactor source changes are also
+uncommitted.
 
 ## Next Planned Step
 
-Step 9 should create real stub modules for `swarm` and `food`:
-
-```text
-src/subcommands/swarm/mod.rs
-src/subcommands/swarm/run.rs
-src/subcommands/food/mod.rs
-src/subcommands/food/run.rs
-```
-
-Then CLI dispatch should call those modules instead of printing the placeholder
-messages directly from `src/cli/dispatch.rs`.
+No remaining high-priority review item from `FIXES.md` is pending.

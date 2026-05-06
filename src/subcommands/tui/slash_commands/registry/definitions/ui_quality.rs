@@ -13,7 +13,7 @@ pub(super) const COMMANDS: &[CommandDefinition] = &[
             name: "/theme",
             visible: true,
         }],
-        executor: handlers::ui_quality::handle_theme_command,
+        executor: handlers::ui_quality::execute_theme_command,
     },
     CommandDefinition {
         id: CommandId::Resize,
@@ -24,6 +24,6 @@ pub(super) const COMMANDS: &[CommandDefinition] = &[
             name: "/resize",
             visible: true,
         }],
-        executor: handlers::ui_quality::handle_resize_command,
+        executor: handlers::ui_quality::execute_resize_command,
     },
 ];

@@ -13,6 +13,7 @@ pub struct RulesState {
     pub(super) global_path: PathBuf,
     pub(super) global_rules: Option<RulesFile>,
     pub(super) project_root: Option<PathBuf>,
+    pub(super) project_rules_path: PathBuf,
     pub(super) project_rules: Option<RulesFile>,
     pub(super) load_warnings: Vec<String>,
 }

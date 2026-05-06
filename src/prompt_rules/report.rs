@@ -1,4 +1,3 @@
-use super::paths::project_rules_path;
 use super::state::RulesState;
 use super::storage::rules_file_state;
 
@@ -30,7 +29,7 @@ impl RulesState {
             report.push_str(&format!("Project root: {}\n", root.display()));
             report.push_str(&format!(
                 "Project rules: {} ({})\n",
-                project_rules_path(root).display(),
+                self.project_rules_path.display(),
                 rules_file_state(self.project_rules.as_ref())
             ));
         } else {

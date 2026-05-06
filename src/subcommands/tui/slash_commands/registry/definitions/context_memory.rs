@@ -13,7 +13,7 @@ pub(super) const COMMANDS: &[CommandDefinition] = &[
             name: "/context",
             visible: true,
         }],
-        executor: handlers::context_memory::handle_context_command,
+        executor: handlers::context_memory::execute_context_command,
     },
     CommandDefinition {
         id: CommandId::Tokens,
@@ -24,7 +24,7 @@ pub(super) const COMMANDS: &[CommandDefinition] = &[
             name: "/tokens",
             visible: true,
         }],
-        executor: handlers::context_memory::handle_tokens_command,
+        executor: handlers::context_memory::execute_tokens_command,
     },
     CommandDefinition {
         id: CommandId::Bookmark,
@@ -35,7 +35,7 @@ pub(super) const COMMANDS: &[CommandDefinition] = &[
             name: "/bookmark",
             visible: true,
         }],
-        executor: handlers::context_memory::handle_bookmark_command,
+        executor: handlers::context_memory::execute_bookmark_command,
     },
     CommandDefinition {
         id: CommandId::Memory,
@@ -46,6 +46,6 @@ pub(super) const COMMANDS: &[CommandDefinition] = &[
             name: "/memory",
             visible: true,
         }],
-        executor: handlers::context_memory::handle_memory_command,
+        executor: handlers::context_memory::execute_memory_command,
     },
 ];

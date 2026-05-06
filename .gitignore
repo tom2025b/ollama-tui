@@ -1,1 +1,4 @@
 /target
+
+# Local HomeKit/Homebridge accessory dumps can contain pairing keys.
+/??-??-??-??-??-??.json

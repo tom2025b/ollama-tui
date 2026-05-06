@@ -1,22 +1,33 @@
 use std::collections::BTreeSet;
 use std::fmt::Write as _;
 
-use crate::storage::history as history_io;
 use crate::subcommands::tui::slash_commands::parser::ParsedCommand;
 
 use super::history::history_report;
-use super::session::{CommandContext, HistoryEntry};
+use super::session::{
+    CommandContext, CommandOutput, HistoryEntry, HistoryExport, HistoryView, RulesContext,
+};
 
-pub fn handle_summary_command(context: &mut dyn CommandContext, command: &ParsedCommand) {
+pub fn handle_summary_command<C>(context: &mut C, command: &ParsedCommand)
+where
+    C: CommandOutput + HistoryView + ?Sized,
+{
     context.append_local_message(command.raw(), summary_report(context));
     context.set_status("Displayed summary.".to_string());
 }
 
-pub fn handle_export_command(context: &mut dyn CommandContext, command: &ParsedCommand) {
+pub fn execute_summary_command(context: &mut dyn CommandContext, command: &ParsedCommand) {
+    handle_summary_command(context, command);
+}
+
+pub fn handle_export_command<C>(context: &mut C, command: &ParsedCommand)
+where
+    C: CommandOutput + HistoryView + HistoryExport + RulesContext + ?Sized,
+{
     let requested_path = command.args().first().map(String::as_str);
     let report = history_report(context);
 
-    match history_io::save_report(&report, requested_path) {
+    match context.save_history_report(&report, requested_path) {
         Ok(path) => {
             context.append_local_message(
                 command.raw(),
@@ -31,7 +42,14 @@ pub fn handle_export_command(context: &mut dyn CommandContext, command: &ParsedC
     }
 }
 
-fn summary_report(context: &dyn CommandContext) -> String {
+pub fn execute_export_command(context: &mut dyn CommandContext, command: &ParsedCommand) {
+    handle_export_command(context, command);
+}
+
+fn summary_report<C>(context: &C) -> String
+where
+    C: HistoryView + ?Sized,
+{
     let entries = context.history_entries();
     let model_turns = entries
         .iter()

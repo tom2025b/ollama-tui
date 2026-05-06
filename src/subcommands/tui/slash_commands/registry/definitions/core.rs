@@ -5,17 +5,6 @@ use super::super::types::{CommandDefinition, CommandName};
 
 pub(super) const COMMANDS: &[CommandDefinition] = &[
     CommandDefinition {
-        id: CommandId::ClaudeCode,
-        display_name: "/claude",
-        hint: "Open Claude Code in project root",
-        detail: "Suspend the TUI and launch Claude Code (the claude CLI) in the project root.",
-        names: &[CommandName {
-            name: "/claude",
-            visible: true,
-        }],
-        executor: handlers::claude::handle_claude_command,
-    },
-    CommandDefinition {
         id: CommandId::Clear,
         display_name: "/clear",
         hint: "Clear visible conversation",
@@ -24,18 +13,7 @@ pub(super) const COMMANDS: &[CommandDefinition] = &[
             name: "/clear",
             visible: true,
         }],
-        executor: handlers::clear::handle_clear_command,
-    },
-    CommandDefinition {
-        id: CommandId::Codex,
-        display_name: "/codex",
-        hint: "Open Codex in project root",
-        detail: "Suspend the TUI and launch the Codex CLI in the project root.",
-        names: &[CommandName {
-            name: "/codex",
-            visible: true,
-        }],
-        executor: handlers::codex::handle_codex_command,
+        executor: handlers::clear::execute_clear_command,
     },
     CommandDefinition {
         id: CommandId::Explain,
@@ -46,7 +24,7 @@ pub(super) const COMMANDS: &[CommandDefinition] = &[
             name: "/explain",
             visible: true,
         }],
-        executor: handlers::explain::handle_explain_command,
+        executor: handlers::explain::execute_explain_command,
     },
     CommandDefinition {
         id: CommandId::Model,
@@ -57,7 +35,7 @@ pub(super) const COMMANDS: &[CommandDefinition] = &[
             name: "/model",
             visible: true,
         }],
-        executor: handlers::session::open_models_command,
+        executor: handlers::session::execute_open_models_command,
     },
     CommandDefinition {
         id: CommandId::Backend,
@@ -68,18 +46,7 @@ pub(super) const COMMANDS: &[CommandDefinition] = &[
             name: "/backend",
             visible: true,
         }],
-        executor: handlers::backends::handle_backends_command,
-    },
-    CommandDefinition {
-        id: CommandId::Cost,
-        display_name: "/cost",
-        hint: "Open cost tracker",
-        detail: "Run the Python cost tracker, then return to the TUI.",
-        names: &[CommandName {
-            name: "/cost",
-            visible: true,
-        }],
-        executor: handlers::session::cost_command,
+        executor: handlers::backends::execute_backends_command,
     },
     CommandDefinition {
         id: CommandId::Rules,
@@ -90,7 +57,7 @@ pub(super) const COMMANDS: &[CommandDefinition] = &[
             name: "/rules",
             visible: true,
         }],
-        executor: handlers::rules::handle_rules_command,
+        executor: handlers::rules::execute_rules_command,
     },
     CommandDefinition {
         id: CommandId::Help,
@@ -101,18 +68,18 @@ pub(super) const COMMANDS: &[CommandDefinition] = &[
             name: "/help",
             visible: true,
         }],
-        executor: handlers::session::open_help_command,
+        executor: handlers::session::execute_open_help_command,
     },
     CommandDefinition {
         id: CommandId::History,
         display_name: "/history",
-        hint: "Show, save, or email history",
-        detail: "Show history, save it to a file, or send it by email.",
+        hint: "Show or save history",
+        detail: "Show history or save it to a file.",
         names: &[CommandName {
             name: "/history",
             visible: true,
         }],
-        executor: handlers::history::handle_history_command,
+        executor: handlers::history::execute_history_command,
     },
     CommandDefinition {
         id: CommandId::Fix,
@@ -124,7 +91,7 @@ pub(super) const COMMANDS: &[CommandDefinition] = &[
             name: "/fix",
             visible: true,
         }],
-        executor: handlers::fix::handle_fix_command,
+        executor: handlers::fix::execute_fix_command,
     },
     CommandDefinition {
         id: CommandId::Review,
@@ -136,7 +103,7 @@ pub(super) const COMMANDS: &[CommandDefinition] = &[
             name: "/review",
             visible: true,
         }],
-        executor: handlers::review::handle_review_command,
+        executor: handlers::review::execute_review_command,
     },
     CommandDefinition {
         id: CommandId::Quit,
@@ -157,6 +124,6 @@ pub(super) const COMMANDS: &[CommandDefinition] = &[
                 visible: true,
             },
         ],
-        executor: handlers::session::quit_command,
+        executor: handlers::session::execute_quit_command,
     },
 ];

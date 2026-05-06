@@ -1,10 +1,13 @@
 use std::fmt::Write as _;
 
-use super::CommandContext;
+use super::{HistoryView, RulesContext};
 
-pub(in crate::subcommands::tui::slash_commands::handlers) fn history_report(
-    context: &dyn CommandContext,
-) -> String {
+pub(in crate::subcommands::tui::slash_commands::handlers) fn history_report<C>(
+    context: &C,
+) -> String
+where
+    C: HistoryView + RulesContext + ?Sized,
+{
     let conversation = context
         .history_entries()
         .into_iter()
@@ -47,7 +50,10 @@ pub(in crate::subcommands::tui::slash_commands::handlers) fn history_report(
     report
 }
 
-fn write_report_header(context: &dyn CommandContext, report: &mut String) {
+fn write_report_header<C>(context: &C, report: &mut String)
+where
+    C: RulesContext + ?Sized,
+{
     let _ = writeln!(report, "ollama-me history");
     let _ = writeln!(report, "Rules: {}", context.rules_status_line());
 

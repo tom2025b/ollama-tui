@@ -1,8 +1,11 @@
 use std::fmt::Write as _;
 
-use super::super::session::{CommandContext, HistoryEntry};
+use super::super::session::{HistoryEntry, HistoryView};
 
-pub(super) fn context_report(context: &dyn CommandContext) -> String {
+pub(super) fn context_report<C>(context: &C) -> String
+where
+    C: HistoryView + ?Sized,
+{
     let entries = context.history_entries();
     let model_turns = entries.iter().filter(|entry| is_model_turn(entry)).count();
     let remembered = entries
@@ -29,14 +32,20 @@ pub(super) fn context_report(context: &dyn CommandContext) -> String {
     report
 }
 
-pub(super) fn memory_report(context: &dyn CommandContext) -> String {
+pub(super) fn memory_report<C>(context: &C) -> String
+where
+    C: HistoryView + ?Sized,
+{
     let mut report = context_report(context);
     report.push_str("\nUse /bookmark to remember the latest turn.\n");
     report.push_str("Use /memory clear to forget remembered turns.");
     report
 }
 
-pub(super) fn token_report(context: &dyn CommandContext) -> String {
+pub(super) fn token_report<C>(context: &C) -> String
+where
+    C: HistoryView + ?Sized,
+{
     let entries = context.history_entries();
     let next_tokens: usize = entries
         .iter()

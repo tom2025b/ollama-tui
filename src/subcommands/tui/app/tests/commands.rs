@@ -1,6 +1,5 @@
 use super::super::App;
 use super::support::completed_message;
-use crate::subcommands::tui::slash_commands::ExternalAction;
 
 #[test]
 fn clear_command_clears_history_without_model_request() {
@@ -52,22 +51,6 @@ fn help_command_opens_help_without_model_request() {
     assert!(request.is_none());
     assert!(app.ui.show_help);
     assert!(app.session.history.is_empty());
-}
-
-#[test]
-fn cost_command_queues_external_action_without_model_request() {
-    let mut app = App::new();
-    app.session.input = "/cost".to_string();
-
-    let request = app.submit_prompt();
-
-    assert!(request.is_none());
-    assert!(matches!(
-        app.take_external_action(),
-        Some(ExternalAction::CostReport)
-    ));
-    assert!(app.session.history.is_empty());
-    assert_eq!(app.ui.status, "Opening cost tracker.");
 }
 
 #[test]

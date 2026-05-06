@@ -6,12 +6,9 @@ use super::super::parser::ParsedCommand;
 pub enum CommandId {
     Backend,
     Bookmark,
-    ClaudeCode,
     Clear,
-    Codex,
     Explain,
     Context,
-    Cost,
     Export,
     Help,
     History,
@@ -68,8 +65,6 @@ pub(super) struct CommandDefinition {
     pub(super) names: &'static [CommandName],
     pub(super) executor: CommandExecutor,
 }
-
-pub(super) type CommandSpec = CommandDefinition;
 
 impl CommandDefinition {
     pub(super) fn registered_command(&self) -> RegisteredCommand {

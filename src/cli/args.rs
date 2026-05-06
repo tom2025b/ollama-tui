@@ -1,32 +1,12 @@
-use clap::{Parser, Subcommand};
+use clap::Parser;
+
+use crate::subcommands::spec::SubcommandId;
 
 #[derive(Debug, Parser)]
 #[command(name = "ai-suite", version, about = "A modular AI command suite")]
 pub struct Cli {
     #[command(subcommand)]
-    pub command: Option<CliCommand>,
-}
-
-#[derive(Debug, Clone, Copy, Subcommand)]
-pub enum CliCommand {
-    /// Launch the interactive terminal UI.
-    Tui,
-
-    /// Run the swarm orchestration tool.
-    Swarm,
-
-    /// Run the food planning tool.
-    Food,
-}
-
-impl CliCommand {
-    pub fn name(self) -> &'static str {
-        match self {
-            Self::Tui => "tui",
-            Self::Swarm => "swarm",
-            Self::Food => "food",
-        }
-    }
+    pub command: Option<SubcommandId>,
 }
 
 impl Cli {

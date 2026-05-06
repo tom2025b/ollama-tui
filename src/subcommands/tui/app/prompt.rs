@@ -16,10 +16,7 @@ impl App {
         // /review). When they do, fall through and treat that staged prompt as
         // the user's real submission so the model actually sees it.
         let prompt = if self.try_execute_command(&prompt) {
-            match self.take_staged_command_prompt() {
-                Some(staged) => staged,
-                None => return None,
-            }
+            self.take_staged_command_prompt()?
         } else {
             prompt
         };

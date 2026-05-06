@@ -1,8 +1,6 @@
 pub mod backends;
-pub mod claude;
 pub mod clear;
 pub mod code_block;
-pub mod codex;
 pub mod context_memory;
 pub mod explain;
 pub mod fix;
@@ -14,4 +12,8 @@ pub mod session;
 pub mod ui_quality;
 
 pub use rules::complete_rules_edit;
-pub use session::{CommandContext, ExternalAction, HistoryEntry, Setting, SettingEdit};
+pub use session::{
+    AppLifecycle, CommandContext, CommandOutput, ContextMemory, ConversationControl,
+    ExternalAction, HelpOverlay, HistoryEntry, HistoryExport, HistoryView, ModelActivity,
+    ModelCatalog, ModelPicker, PromptStaging, RulesContext, Setting, SettingEdit, SettingsContext,
+};

@@ -1,9 +1,12 @@
 use crate::subcommands::tui::slash_commands::parser::ParsedCommand;
 
 use super::code_block::last_code_block;
-use super::session::CommandContext;
+use super::session::{CommandContext, CommandOutput, HistoryView, PromptStaging};
 
-pub fn handle_review_command(context: &mut dyn CommandContext, command: &ParsedCommand) {
+pub fn handle_review_command<C>(context: &mut C, command: &ParsedCommand)
+where
+    C: CommandOutput + HistoryView + PromptStaging + ?Sized,
+{
     let Some(code_block) = last_code_block(context) else {
         context.append_local_message(
             command.raw(),
@@ -17,6 +20,10 @@ pub fn handle_review_command(context: &mut dyn CommandContext, command: &ParsedC
 
     context.stage_prompt_for_model(review_prompt(&code_block));
     context.set_status("Asking the model to review the last code block...".to_string());
+}
+
+pub fn execute_review_command(context: &mut dyn CommandContext, command: &ParsedCommand) {
+    handle_review_command(context, command);
 }
 
 fn review_prompt(code_block: &str) -> String {

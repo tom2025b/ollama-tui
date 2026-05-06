@@ -1,8 +1,11 @@
 use crate::subcommands::tui::slash_commands::parser::ParsedCommand;
 
-use super::session::{CommandContext, Setting, SettingEdit};
+use super::session::{CommandContext, CommandOutput, Setting, SettingEdit, SettingsContext};
 
-pub fn handle_theme_command(context: &mut dyn CommandContext, command: &ParsedCommand) {
+pub fn handle_theme_command<C>(context: &mut C, command: &ParsedCommand)
+where
+    C: CommandOutput + SettingsContext + ?Sized,
+{
     handle_setting_command(
         context,
         command,
@@ -12,7 +15,14 @@ pub fn handle_theme_command(context: &mut dyn CommandContext, command: &ParsedCo
     );
 }
 
-pub fn handle_resize_command(context: &mut dyn CommandContext, command: &ParsedCommand) {
+pub fn execute_theme_command(context: &mut dyn CommandContext, command: &ParsedCommand) {
+    handle_theme_command(context, command);
+}
+
+pub fn handle_resize_command<C>(context: &mut C, command: &ParsedCommand)
+where
+    C: CommandOutput + SettingsContext + ?Sized,
+{
     handle_setting_command(
         context,
         command,
@@ -22,13 +32,19 @@ pub fn handle_resize_command(context: &mut dyn CommandContext, command: &ParsedC
     );
 }
 
-fn handle_setting_command(
-    context: &mut dyn CommandContext,
+pub fn execute_resize_command(context: &mut dyn CommandContext, command: &ParsedCommand) {
+    handle_resize_command(context, command);
+}
+
+fn handle_setting_command<C>(
+    context: &mut C,
     command: &ParsedCommand,
     setting: Setting,
     displayed_status: &str,
     error_status: &str,
-) {
+) where
+    C: CommandOutput + SettingsContext + ?Sized,
+{
     let requested = command.args().first().map(String::as_str);
 
     if is_report_request(requested) {

@@ -1,8 +1,7 @@
 use tokio::sync::mpsc;
 
 use crate::{
-    llm::Provider,
-    providers::{anthropic, ollama, openai, xai},
+    providers::execution::{self, ModelRequest},
     subcommands::tui::app::{ModelEvent, PendingRequest},
 };
 
@@ -16,55 +15,14 @@ pub fn spawn_model_request(
     model_event_tx: mpsc::UnboundedSender<ModelEvent>,
 ) {
     tokio::spawn(async move {
-        let selected_model = request.route.model.clone();
-        let provider_label = selected_model.provider.label();
+        let model_request =
+            ModelRequest::new(request.route.model.clone(), request.context, request.prompt);
+        let provider_label = model_request.provider_label();
 
-        let stream_result = match &selected_model.provider {
-            Provider::Ollama => {
-                ollama::stream(
-                    &selected_model.name,
-                    &request.context,
-                    &request.prompt,
-                    |token| {
-                        let _ = model_event_tx.send(ModelEvent::Token(token));
-                    },
-                )
-                .await
-            }
-            Provider::Anthropic => {
-                anthropic::stream(
-                    &selected_model.name,
-                    &request.context,
-                    &request.prompt,
-                    |token| {
-                        let _ = model_event_tx.send(ModelEvent::Token(token));
-                    },
-                )
-                .await
-            }
-            Provider::OpenAi => {
-                openai::stream(
-                    &selected_model.name,
-                    &request.context,
-                    &request.prompt,
-                    |token| {
-                        let _ = model_event_tx.send(ModelEvent::Token(token));
-                    },
-                )
-                .await
-            }
-            Provider::Xai => {
-                xai::stream(
-                    &selected_model.name,
-                    &request.context,
-                    &request.prompt,
-                    |token| {
-                        let _ = model_event_tx.send(ModelEvent::Token(token));
-                    },
-                )
-                .await
-            }
-        };
+        let stream_result = execution::stream_model_request(&model_request, |token| {
+            let _ = model_event_tx.send(ModelEvent::Token(token));
+        })
+        .await;
 
         let event = match stream_result {
             Ok(_) => ModelEvent::Finished,

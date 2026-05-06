@@ -1,3 +1,5 @@
+pub(crate) mod execution;
+
 pub mod anthropic;
 pub mod ollama;
 pub mod openai;

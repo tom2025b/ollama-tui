@@ -3,33 +3,48 @@ use std::path::PathBuf;
 use super::App;
 use crate::llm::LanguageModel;
 use crate::prompt_rules::RulesTarget;
-use crate::subcommands::tui::slash_commands::handlers::CommandContext;
 use crate::subcommands::tui::slash_commands::handlers::{
-    ExternalAction, HistoryEntry, Setting, SettingEdit,
+    AppLifecycle, CommandOutput, ContextMemory, ConversationControl, ExternalAction, HelpOverlay,
+    HistoryEntry, HistoryExport, HistoryView, ModelActivity, ModelCatalog, ModelPicker,
+    PromptStaging, RulesContext, Setting, SettingEdit, SettingsContext,
 };
 
-impl CommandContext for App {
-    fn waiting_for_model(&self) -> bool {
-        self.session.waiting_for_model
-    }
-
-    fn clear_conversation(&mut self) {
-        self.session.history.clear();
-        self.session.active_model_name = None;
-    }
-
-    fn open_models_picker(&mut self) {
-        App::open_models_picker(self);
-    }
-
+impl CommandOutput for App {
     fn append_local_message(&mut self, command: &str, answer: String) {
         App::append_local_message(self, command, answer);
     }
 
+    fn set_status(&mut self, status: String) {
+        self.ui.status = status;
+    }
+}
+
+impl ModelActivity for App {
+    fn waiting_for_model(&self) -> bool {
+        self.session.waiting_for_model
+    }
+}
+
+impl ConversationControl for App {
+    fn clear_conversation(&mut self) {
+        self.session.history.clear();
+        self.session.active_model_name = None;
+    }
+}
+
+impl ModelPicker for App {
+    fn open_models_picker(&mut self) {
+        App::open_models_picker(self);
+    }
+}
+
+impl ModelCatalog for App {
     fn models(&self) -> &[LanguageModel] {
         App::models(self)
     }
+}
 
+impl RulesContext for App {
     fn default_rules_target(&self) -> RulesTarget {
         if self.rules.project_root().is_some() {
             RulesTarget::Project
@@ -65,13 +80,16 @@ impl CommandContext for App {
     }
 
     fn reload_rules(&mut self, enabled: bool) {
-        self.rules = crate::prompt_rules::RulesState::load().with_enabled(enabled);
+        self.rules =
+            crate::prompt_rules::RulesState::load(self.runtime.paths()).with_enabled(enabled);
     }
 
     fn rules_status_line(&self) -> String {
         self.rules.status_line()
     }
+}
 
+impl HistoryView for App {
     fn context_turn_limit(&self) -> usize {
         crate::subcommands::tui::app::MAX_CONTEXT_TURNS
     }
@@ -91,7 +109,20 @@ impl CommandContext for App {
             })
             .collect()
     }
+}
 
+impl HistoryExport for App {
+    fn save_history_report(
+        &self,
+        report: &str,
+        requested_path: Option<&str>,
+    ) -> Result<PathBuf, String> {
+        crate::storage::history::save_report(self.runtime.paths(), report, requested_path)
+            .map_err(|error| error.to_string())
+    }
+}
+
+impl ContextMemory for App {
     fn include_latest_history_entry(&mut self, include: bool) -> Option<String> {
         App::include_latest_history_entry(self, include)
     }
@@ -99,7 +130,9 @@ impl CommandContext for App {
     fn clear_context_memory(&mut self) -> usize {
         App::clear_context_memory(self)
     }
+}
 
+impl SettingsContext for App {
     fn setting_report(&self, setting: Setting) -> String {
         App::setting_report(self, setting)
     }
@@ -107,20 +140,22 @@ impl CommandContext for App {
     fn set_setting(&mut self, setting: SettingEdit<'_>) -> Result<String, String> {
         App::set_setting(self, setting)
     }
+}
 
+impl HelpOverlay for App {
     fn open_help_overlay(&mut self) {
         self.ui.show_help = true;
         self.ui.status = "Help is open. Press q, Esc, ?, or Ctrl-C to close it.".to_string();
     }
+}
 
-    fn set_status(&mut self, status: String) {
-        self.ui.status = status;
-    }
-
+impl AppLifecycle for App {
     fn quit(&mut self) {
         App::quit(self);
     }
+}
 
+impl PromptStaging for App {
     fn stage_prompt_for_model(&mut self, prompt: String) {
         self.commands.stage_prompt(prompt);
     }

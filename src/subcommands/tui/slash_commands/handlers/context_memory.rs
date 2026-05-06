@@ -3,22 +3,39 @@ mod report;
 use crate::subcommands::tui::slash_commands::parser::ParsedCommand;
 
 use self::report::{context_report, memory_report, preview, token_report};
-use super::session::CommandContext;
+use super::session::{CommandContext, CommandOutput, ContextMemory, HistoryView};
 
 const BOOKMARK_USAGE: &str = "Usage: /bookmark [add|remove]";
 const MEMORY_USAGE: &str = "Usage: /memory [show|clear]";
 
-pub fn handle_context_command(context: &mut dyn CommandContext, command: &ParsedCommand) {
+pub fn handle_context_command<C>(context: &mut C, command: &ParsedCommand)
+where
+    C: CommandOutput + HistoryView + ?Sized,
+{
     context.append_local_message(command.raw(), context_report(context));
     context.set_status("Displayed context window.".to_string());
 }
 
-pub fn handle_tokens_command(context: &mut dyn CommandContext, command: &ParsedCommand) {
+pub fn execute_context_command(context: &mut dyn CommandContext, command: &ParsedCommand) {
+    handle_context_command(context, command);
+}
+
+pub fn handle_tokens_command<C>(context: &mut C, command: &ParsedCommand)
+where
+    C: CommandOutput + HistoryView + ?Sized,
+{
     context.append_local_message(command.raw(), token_report(context));
     context.set_status("Estimated token usage.".to_string());
 }
 
-pub fn handle_bookmark_command(context: &mut dyn CommandContext, command: &ParsedCommand) {
+pub fn execute_tokens_command(context: &mut dyn CommandContext, command: &ParsedCommand) {
+    handle_tokens_command(context, command);
+}
+
+pub fn handle_bookmark_command<C>(context: &mut C, command: &ParsedCommand)
+where
+    C: CommandOutput + ContextMemory + ?Sized,
+{
     let action = first_arg_or(command, "add");
 
     match action.as_str() {
@@ -33,7 +50,14 @@ pub fn handle_bookmark_command(context: &mut dyn CommandContext, command: &Parse
     }
 }
 
-pub fn handle_memory_command(context: &mut dyn CommandContext, command: &ParsedCommand) {
+pub fn execute_bookmark_command(context: &mut dyn CommandContext, command: &ParsedCommand) {
+    handle_bookmark_command(context, command);
+}
+
+pub fn handle_memory_command<C>(context: &mut C, command: &ParsedCommand)
+where
+    C: CommandOutput + ContextMemory + HistoryView + ?Sized,
+{
     let action = first_arg_or(command, "show");
 
     match action.as_str() {
@@ -58,7 +82,14 @@ pub fn handle_memory_command(context: &mut dyn CommandContext, command: &ParsedC
     }
 }
 
-fn set_latest_bookmark(context: &mut dyn CommandContext, input: &str, remember: bool) {
+pub fn execute_memory_command(context: &mut dyn CommandContext, command: &ParsedCommand) {
+    handle_memory_command(context, command);
+}
+
+fn set_latest_bookmark<C>(context: &mut C, input: &str, remember: bool)
+where
+    C: CommandOutput + ContextMemory + ?Sized,
+{
     match context.include_latest_history_entry(remember) {
         Some(prompt) => {
             let verb = if remember { "Bookmarked" } else { "Removed" };
@@ -88,7 +119,10 @@ fn first_arg_or(command: &ParsedCommand, default: &str) -> String {
         .unwrap_or_else(|| default.to_string())
 }
 
-fn show_usage(context: &mut dyn CommandContext, input: &str, message: &str, status: &str) {
+fn show_usage<C>(context: &mut C, input: &str, message: &str, status: &str)
+where
+    C: CommandOutput + ?Sized,
+{
     context.append_local_message(input, message.to_string());
     context.set_status(status.to_string());
 }

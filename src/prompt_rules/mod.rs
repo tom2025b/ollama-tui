@@ -1,5 +1,4 @@
 mod content;
-mod paths;
 mod prompt;
 mod report;
 mod state;

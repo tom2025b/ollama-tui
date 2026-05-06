@@ -3,10 +3,13 @@ mod edit;
 use crate::prompt_rules::RulesTarget;
 use crate::subcommands::tui::slash_commands::parser::ParsedCommand;
 
-use super::session::{CommandContext, ExternalAction};
+use super::session::{CommandContext, CommandOutput, ExternalAction, ModelActivity, RulesContext};
 pub use edit::complete_rules_edit;
 
-pub fn handle_rules_command(context: &mut dyn CommandContext, command: &ParsedCommand) {
+pub fn handle_rules_command<C>(context: &mut C, command: &ParsedCommand)
+where
+    C: CommandOutput + ModelActivity + RulesContext + ?Sized,
+{
     let mut args = command.args().iter().map(String::as_str);
     let subcommand = args.next().map(|arg| arg.to_ascii_lowercase());
 
@@ -47,7 +50,14 @@ pub fn handle_rules_command(context: &mut dyn CommandContext, command: &ParsedCo
     }
 }
 
-fn toggle_rules(context: &mut dyn CommandContext, input: &str) {
+pub fn execute_rules_command(context: &mut dyn CommandContext, command: &ParsedCommand) {
+    handle_rules_command(context, command);
+}
+
+fn toggle_rules<C>(context: &mut C, input: &str)
+where
+    C: CommandOutput + RulesContext + ?Sized,
+{
     let enabled = !context.rules_enabled();
     if enabled {
         context.reload_rules(true);
@@ -70,7 +80,10 @@ fn toggle_rules(context: &mut dyn CommandContext, input: &str) {
     });
 }
 
-fn queue_rules_edit(context: &mut dyn CommandContext, input: &str, target: RulesTarget) {
+fn queue_rules_edit<C>(context: &mut C, input: &str, target: RulesTarget)
+where
+    C: CommandOutput + ModelActivity + RulesContext + ?Sized,
+{
     if context.waiting_for_model() {
         context.append_local_message(
             input,
@@ -87,7 +100,7 @@ fn queue_rules_edit(context: &mut dyn CommandContext, input: &str, target: Rules
                 path: path.clone(),
             });
             context.set_status(format!(
-                "Opening nano for {} at {}.",
+                "Opening editor for {} at {}.",
                 target.label(),
                 path.display()
             ));

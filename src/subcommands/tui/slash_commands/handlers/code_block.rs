@@ -1,10 +1,13 @@
-use super::session::CommandContext;
+use super::session::HistoryView;
 
 /// Most recent fenced code block from the visible history, walking newest first.
 ///
 /// Both assistant answers and user prompts are scanned, since users frequently
 /// paste code into prompts and ask the model to react to it.
-pub fn last_code_block(context: &dyn CommandContext) -> Option<String> {
+pub fn last_code_block<C>(context: &C) -> Option<String>
+where
+    C: HistoryView + ?Sized,
+{
     for entry in context.history_entries().into_iter().rev() {
         if let Some(block) = extract_last_fenced_code_block(entry.answer) {
             return Some(block);
@@ -21,7 +24,10 @@ pub fn last_code_block(context: &dyn CommandContext) -> Option<String> {
 ///
 /// In-progress and failed turns are skipped so /fix never asks the model to
 /// reason about a half-written or error-tagged response.
-pub fn last_assistant_message(context: &dyn CommandContext) -> Option<String> {
+pub fn last_assistant_message<C>(context: &C) -> Option<String>
+where
+    C: HistoryView + ?Sized,
+{
     context
         .history_entries()
         .into_iter()

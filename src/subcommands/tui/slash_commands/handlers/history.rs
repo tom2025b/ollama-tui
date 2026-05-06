@@ -1,12 +1,14 @@
 mod report;
 
-use crate::storage::history as history_io;
 use crate::subcommands::tui::slash_commands::parser::ParsedCommand;
 
 pub(super) use self::report::history_report;
-use super::session::CommandContext;
+use super::session::{CommandContext, CommandOutput, HistoryExport, HistoryView, RulesContext};
 
-pub fn handle_history_command(context: &mut dyn CommandContext, command: &ParsedCommand) {
+pub fn handle_history_command<C>(context: &mut C, command: &ParsedCommand)
+where
+    C: CommandOutput + HistoryView + HistoryExport + RulesContext + ?Sized,
+{
     let mut args = command.args().iter().map(String::as_str);
     let subcommand = args.next().map(|arg| arg.to_ascii_lowercase());
 
@@ -19,7 +21,7 @@ pub fn handle_history_command(context: &mut dyn CommandContext, command: &Parsed
             let requested_path = args.next();
             let report = history_report(context);
 
-            match history_io::save_report(&report, requested_path) {
+            match context.save_history_report(&report, requested_path) {
                 Ok(path) => {
                     context.append_local_message(
                         command.raw(),
@@ -36,38 +38,16 @@ pub fn handle_history_command(context: &mut dyn CommandContext, command: &Parsed
                 }
             }
         }
-        Some("email") | Some("mail") => {
-            let subject = args.collect::<Vec<_>>().join(" ");
-            let subject = if subject.trim().is_empty() {
-                "ollama-me history"
-            } else {
-                subject.trim()
-            };
-            let report = history_report(context);
-
-            match history_io::email_report(&report, subject) {
-                Ok(()) => {
-                    context.append_local_message(
-                        command.raw(),
-                        format!("Emailed history with subject: {subject}"),
-                    );
-                    context.set_status("Emailed history.".to_string());
-                }
-                Err(error) => {
-                    context.append_local_message(
-                        command.raw(),
-                        format!("Could not email history through send-report: {error}"),
-                    );
-                    context.set_status("Failed to email history.".to_string());
-                }
-            }
-        }
         _ => {
             context.append_local_message(
                 command.raw(),
-                "Usage: /history [show|save [path]|email [subject]]".to_string(),
+                "Usage: /history [show|save [path]]".to_string(),
             );
             context.set_status("Unknown /history command.".to_string());
         }
     }
+}
+
+pub fn execute_history_command(context: &mut dyn CommandContext, command: &ParsedCommand) {
+    handle_history_command(context, command);
 }

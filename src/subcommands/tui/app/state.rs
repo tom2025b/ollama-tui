@@ -1,4 +1,5 @@
 use crate::prompt_rules::RulesState;
+use crate::runtime::Runtime;
 
 use super::command_state::CommandState;
 use super::routing_state::RoutingState;
@@ -10,6 +11,7 @@ use super::ui_state::UiState;
 /// Domain-specific state lives in smaller structs. `App` keeps the event loop
 /// simple by grouping those structs with process-level lifecycle state.
 pub struct App {
+    pub(super) runtime: Runtime,
     pub(super) routing: RoutingState,
     pub(super) commands: CommandState,
     pub(crate) session: SessionState,
@@ -23,14 +25,23 @@ pub struct App {
 
 impl App {
     /// Build a fresh app with the default router.
+    #[cfg(test)]
     pub fn new() -> Self {
+        Self::with_runtime(Runtime::load())
+    }
+
+    pub(crate) fn with_runtime(runtime: Runtime) -> Self {
+        let routing = RoutingState::new(runtime.config());
+        let rules = RulesState::load(runtime.paths());
+
         Self {
-            routing: RoutingState::new(),
+            runtime,
+            routing,
             commands: CommandState::new(),
             session: SessionState::new(),
             ui: UiState::new(),
             should_quit: false,
-            rules: RulesState::load(),
+            rules,
         }
     }
 }

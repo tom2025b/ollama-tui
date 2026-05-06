@@ -4,10 +4,7 @@ mod stream_parser;
 mod types;
 
 #[allow(unused_imports)]
-pub use config::{
-    ANTHROPIC_API_KEY_ENV, ANTHROPIC_MODEL_ENV, DEFAULT_ANTHROPIC_MODEL, configured_model_name,
-    is_configured, missing_configuration_reason,
-};
+pub use config::{ANTHROPIC_API_KEY_ENV, ANTHROPIC_MODEL_ENV, DEFAULT_ANTHROPIC_MODEL};
 
 use anyhow::{Context, Result};
 use reqwest::Client;

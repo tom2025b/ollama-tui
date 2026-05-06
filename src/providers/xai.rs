@@ -1,5 +1,3 @@
-use std::env;
-
 use anyhow::Result;
 
 use crate::llm::ConversationTurn;
@@ -19,21 +17,6 @@ pub const DEFAULT_XAI_MODEL: &str = "grok-4.20-reasoning";
 
 /// xAI chat completions endpoint.
 const XAI_CHAT_COMPLETIONS_URL: &str = "https://api.x.ai/v1/chat/completions";
-
-/// Return the configured Grok model name.
-pub fn configured_model_name() -> String {
-    env::var(XAI_MODEL_ENV).unwrap_or_else(|_| DEFAULT_XAI_MODEL.to_string())
-}
-
-/// True when the xAI backend has enough local configuration to be selected.
-pub fn is_configured() -> bool {
-    env::var(XAI_API_KEY_ENV).is_ok()
-}
-
-/// Explain how to enable this backend.
-pub fn missing_configuration_reason() -> String {
-    format!("set {XAI_API_KEY_ENV} to enable Grok")
-}
 
 /// Stream one prompt to xAI.
 pub async fn stream<F>(

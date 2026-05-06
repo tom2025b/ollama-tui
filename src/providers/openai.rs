@@ -1,5 +1,3 @@
-use std::env;
-
 use anyhow::Result;
 
 use crate::llm::ConversationTurn;
@@ -16,21 +14,6 @@ pub const DEFAULT_OPENAI_MODEL: &str = "gpt-4o";
 
 /// OpenAI chat completions endpoint.
 const OPENAI_CHAT_COMPLETIONS_URL: &str = "https://api.openai.com/v1/chat/completions";
-
-/// Return the configured OpenAI model name.
-pub fn configured_model_name() -> String {
-    env::var(OPENAI_MODEL_ENV).unwrap_or_else(|_| DEFAULT_OPENAI_MODEL.to_string())
-}
-
-/// True when the OpenAI backend has enough local configuration to be selected.
-pub fn is_configured() -> bool {
-    env::var(OPENAI_API_KEY_ENV).is_ok()
-}
-
-/// Explain how to enable this backend.
-pub fn missing_configuration_reason() -> String {
-    format!("set {OPENAI_API_KEY_ENV} to enable GPT-4o")
-}
 
 /// Stream one prompt to OpenAI.
 pub async fn stream<F>(

@@ -1,19 +1,13 @@
 use anyhow::Result;
 
-use super::args::{Cli, CliCommand};
+use crate::runtime::Runtime;
 
-pub async fn dispatch(cli: Cli) -> Result<()> {
-    let command = cli.command.unwrap_or(CliCommand::Tui);
-    debug_assert!(crate::subcommands::registry::contains(command.name()));
+use super::args::Cli;
 
-    match command {
-        CliCommand::Tui => crate::subcommands::tui::run().await,
-        CliCommand::Swarm => pending_subcommand("swarm"),
-        CliCommand::Food => pending_subcommand("food"),
-    }
-}
+pub async fn dispatch(cli: Cli, runtime: Runtime) -> Result<()> {
+    let command = cli
+        .command
+        .unwrap_or_else(crate::subcommands::registry::default_command);
 
-fn pending_subcommand(name: &str) -> Result<()> {
-    println!("{name} is not implemented yet");
-    Ok(())
+    crate::subcommands::registry::run(command, &runtime).await
 }

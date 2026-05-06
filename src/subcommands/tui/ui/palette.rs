@@ -65,7 +65,7 @@ pub(super) fn draw_command_palette(
             };
             let padding = " ".repeat(command_width.saturating_sub(suggestion.name.len()) + 2);
 
-            let mut lines = vec![Line::from(vec![
+            let lines = vec![Line::from(vec![
                 Span::styled(format!(" {}", suggestion.name), command_style),
                 Span::styled(padding, row_style),
                 Span::styled(format!("{} ", suggestion.hint), hint_style),

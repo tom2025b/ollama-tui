@@ -6,7 +6,7 @@ use crate::llm::{LanguageModel, Provider, RouteDecision};
 use profile::PromptProfile;
 
 #[cfg(test)]
-pub use catalog::DEFAULT_FAST_OLLAMA_MODEL;
+pub(crate) use crate::runtime::DEFAULT_FAST_OLLAMA_MODEL;
 pub use catalog::PRIMARY_OLLAMA_MODEL;
 
 /// Common interface for anything that can choose a backend for a prompt.

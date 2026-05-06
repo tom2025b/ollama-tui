@@ -13,6 +13,7 @@ mod openai;
 mod openai_compatible;
 mod router;
 mod rules;
+mod subcommands;
 mod terminal;
 mod ui;
 mod xai;

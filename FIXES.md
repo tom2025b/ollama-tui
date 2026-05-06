@@ -1,8 +1,12 @@
-# Fixes Completed This Session
+# Final Refactor Review Summary
 
-## Scope Completed
+This file is the review handoff for Claude. The highest-priority issues found
+during the migration review have been addressed. No remaining high-priority
+item from this list is intentionally left open.
 
-Addressed the six highest-priority review findings:
+## Completed Work
+
+Addressed six review findings from the initial migration pass:
 
 - Public/private boundary leakage.
 - Oversized TUI theme module.
@@ -11,170 +15,103 @@ Addressed the six highest-priority review findings:
 - Missing runtime/config architecture layer.
 - Subcommand registry and CLI dispatch duplication.
 
-The public TUI command surface no longer exposes private or machine-specific
-commands and helpers, the TUI theme code is now split by responsibility, and
-slash command handlers now depend on focused capabilities instead of one large
-app-shaped context trait. Concrete provider execution is now owned by the
-provider layer instead of the TUI, and process-derived config/path state now
-flows through an explicit runtime layer. Top-level subcommand execution now
-flows through one registry-owned runner table instead of a second match in the
-CLI dispatch layer.
+## Code Review Pass (2026-05-06)
 
-## Public Boundary Changes
+Addressed seven findings from the post-migration code review pass:
 
-- Removed public slash commands:
-  - `/claude`
-  - `/codex`
-  - `/cost`
+### 1. `is_local_message` boolean field (was: string sentinel)
 
-- Deleted public command handlers for:
-  - Claude Code launcher
-  - Codex CLI launcher
+- Added `is_local_message: bool` to `ChatMessage` and `HistoryEntry`.
+- Local slash command results set it `true`; model turns set it `false`.
+- Replaced all four `model_name != "ollama-me"` string comparisons with the
+  boolean field in `conversation/context.rs`, `history_output.rs`, and
+  `context_memory/report.rs`.
 
-- Removed the hard-coded private cost tracker path:
-  - `/home/tom/projects/claude-cost-tracker`
+Review files:
 
-- Removed the hard-coded public cost tracker dispatch from:
-  - `src/subcommands/tui/external.rs`
+- `src/subcommands/tui/app/types.rs`
+- `src/subcommands/tui/app/conversation/local.rs`
+- `src/subcommands/tui/app/conversation/context.rs`
+- `src/subcommands/tui/app/prompt.rs`
+- `src/subcommands/tui/slash_commands/handlers/session/context.rs`
+- `src/subcommands/tui/app/context.rs`
+- `src/subcommands/tui/slash_commands/handlers/history_output.rs`
+- `src/subcommands/tui/slash_commands/handlers/context_memory/report.rs`
 
-- Removed Tom-specific history email export through `send-report` from:
-  - `src/storage/history.rs`
-  - `src/subcommands/tui/slash_commands/handlers/history.rs`
+### 2. Dead match arm in `badge_fg`
 
-- Changed `/history` public behavior to support only:
-  - `show`
-  - `save [path]`
+- Collapsed `badge_fg` to a direct `Color::Black` return.
+- The `"mono"` arm was identical to the wildcard arm and added noise.
 
-- Changed rules editing from hard-coded `nano` to a portable editor lookup:
-  - `$VISUAL`
-  - `$EDITOR`
-  - fallback to `vi`
+Review files:
 
-- Updated command registry tests to match the cleaned public command list.
+- `src/subcommands/tui/ui/theme/colors.rs`
 
-- Removed the obsolete `/cost` app test.
+### 3. `println!` in `storage/history`
 
-## Theme Split Changes
+- Removed `println!("Exported history to ...")` from `save_report`.
+- The function returns the saved `PathBuf`; callers own all user-facing output.
 
-- Replaced the deleted flat theme module with focused files:
-  - `src/subcommands/tui/ui/theme/colors.rs`
-  - `src/subcommands/tui/ui/theme/styles.rs`
-  - `src/subcommands/tui/ui/theme/blocks.rs`
-  - `src/subcommands/tui/ui/theme/mod.rs`
+Review files:
 
-- Kept `theme::...` as the internal UI facade so existing renderers do not need
-  to know how theme internals are organized.
+- `src/storage/history.rs`
 
-- Moved palette color lookup, semantic style constructors, and `Block`
-  constructors into separate modules.
+### 4. App name in paths, labels, and templates
 
-- Restored `src/main.rs` to the documented thin `ai_suite::run()` entrypoint
-  after finding an unrelated broken stub during verification.
+- Updated all filesystem paths from `ollama-me` to `ai-suite`:
+  - Global config: `~/.config/ai-suite/rules.md`
+  - Project rules: `<root>/.ai-suite/rules.md`
+  - History export: `~/.local/share/ai-suite/history/`
+- Updated TUI window title, compact header label, history report header,
+  rules file template, and system prompt preamble.
 
-## Command Context Changes
+Review files:
 
-- Split the old all-purpose `CommandContext` surface into focused capability
-  traits:
-  - `CommandOutput`
-  - `ModelActivity`
-  - `ConversationControl`
-  - `ModelPicker`
-  - `ModelCatalog`
-  - `RulesContext`
-  - `HistoryView`
-  - `HistoryExport`
-  - `ContextMemory`
-  - `SettingsContext`
-  - `HelpOverlay`
-  - `AppLifecycle`
-  - `PromptStaging`
+- `src/runtime/paths.rs`
+- `src/prompt_rules/target.rs`
+- `src/prompt_rules/storage.rs`
+- `src/prompt_rules/prompt.rs`
+- `src/subcommands/tui/slash_commands/handlers/history/report.rs`
+- `src/subcommands/tui/ui/theme/blocks.rs`
+- `src/subcommands/tui/ui/chrome/header.rs`
 
-- Changed `App` to implement those capability traits through separate impl
-  blocks in `src/subcommands/tui/app/context.rs`.
+### 5. Editor env read moved into `RuntimePaths`
 
-- Updated slash command handlers to use generic bounds for only the capability
-  groups they need.
+- Added `editor: OsString` field to `RuntimePaths`, resolved from
+  `$VISUAL`, `$EDITOR`, or `vi` during `from_environment`.
+- Added `App::editor_command()` delegating to `runtime.paths().editor()`.
+- Removed the direct `std::env::var_os` calls from `external.rs`.
 
-- Kept the composite `CommandContext` only as the registry/dispatcher dynamic
-  execution boundary, with thin adapter functions bridging registry entries to
-  the narrowed handlers.
+Review files:
 
-## Provider Execution Changes
+- `src/runtime/paths.rs`
+- `src/subcommands/tui/app/state.rs`
+- `src/subcommands/tui/external.rs`
 
-- Added `src/providers/execution.rs`.
+### 6. Provider submodule visibility
 
-- Introduced provider-neutral `ModelRequest` as the handoff into concrete model
-  backends.
+- Changed `pub mod` to `pub(crate) mod` for all five provider backends in
+  `providers/mod.rs`.
+- The `providers` module is private in `lib.rs`; the `pub` declarations were
+  silently downgraded anyway and were inconsistent with `execution`'s
+  existing `pub(crate)`.
 
-- Moved the `Provider::{Ollama, Anthropic, OpenAi, Xai}` execution match out of
-  `src/subcommands/tui/model_task.rs` and into `providers::execution`.
+Review files:
 
-- Kept `src/subcommands/tui/model_task.rs` responsible only for spawning the
-  async task and translating provider execution results into TUI `ModelEvent`s.
+- `src/providers/mod.rs`
 
-- Added a focused unit test for the provider execution request metadata.
+### 7. Inline `crate::...` paths in `prompt.rs`
 
-## Runtime/Config Changes
+- Replaced two long inline `crate::subcommands::tui::slash_commands::...`
+  expressions with `use` imports at the top of the file.
 
-- Added a focused runtime module:
-  - `src/runtime/mod.rs`
-  - `src/runtime/environment.rs`
-  - `src/runtime/config.rs`
-  - `src/runtime/paths.rs`
+Review files:
 
-- Centralized process environment reads behind `RuntimeEnvironment` and
-  `ProcessEnvironment`.
-
-- Added `RuntimeConfig` for model catalog configuration:
-  - `OLLAMA_FAST_MODEL`
-  - cloud provider model overrides
-  - cloud provider API-key presence for routing availability
-
-- Added `RuntimePaths` for path decisions:
-  - home directory fallback
-  - startup current directory
-  - project-root detection
-  - global rules path
-  - project rules path
-  - default history export directory
-  - user-path expansion
-
-- Changed bootstrap and CLI dispatch to create and pass a single `Runtime`.
-
-- Changed TUI app construction to receive `Runtime`, then build routing and
-  rules state from runtime config/paths.
-
-- Changed routing to consume `ModelRuntimeConfig` instead of reading env vars or
-  calling provider configuration helpers.
-
-- Changed prompt rules to load and edit using `RuntimePaths`, then deleted the
-  old prompt-rule-specific path/env module.
-
-- Changed history export to use `RuntimePaths` and added `HistoryExport` as the
-  narrow slash-command capability for saving reports.
-
-- Added focused tests for runtime path expansion and history export path
-  handling.
-
-## Subcommand Registry Changes
-
-- Changed `src/subcommands/registry.rs` into the source of truth for built-in
-  subcommand names, default command selection, and execution entrypoints.
-
-- Removed the duplicate `CliCommand` execution match from `src/cli/dispatch.rs`.
-
-- Kept `src/cli/dispatch.rs` as a thin adapter that chooses the default command
-  through the registry and calls `subcommands::registry::run`.
-
-- Moved the top-level subcommand identity into `src/subcommands/spec.rs` so the
-  registry does not depend back on the CLI parser module.
-
-- Replaced the old name-only subcommand trait with focused runner type aliases
-  in `src/subcommands/spec.rs`.
+- `src/subcommands/tui/app/prompt.rs`
 
 ## Verification
 
-All checks passed after the changes:
+Last full verification passed:
 
 ```text
 cargo fmt --check
@@ -183,16 +120,20 @@ cargo clippy --all-targets -- -D warnings
 cargo test
 ```
 
-Test result:
+Observed test result:
 
 ```text
 112 passed; 0 failed; 4 ignored
 ```
 
-## Current State For Next Agent
+## Review Notes For Claude
 
-The public/private boundary fix, theme split, `CommandContext` narrowing, and
-provider execution move are complete and verified. The runtime/config
-architecture layer is also complete and verified. The subcommand registry now
-owns top-level command execution, so the highest-priority review findings in
-this file are complete.
+- `swarm` and `food` are intentionally stubbed top-level subcommands.
+- Provider-neutral tools and public/private extension hooks are initial
+  architecture surfaces only; no built-in tools or private extensions are
+  registered in the public code.
+- The public build should not expose private slash commands, private filesystem
+  paths, or local pairing/config secrets.
+- The `model_name` field on local messages still contains `"ollama-me"` as a
+  human-readable label; the `is_local_message` boolean is now the canonical
+  way to distinguish local command output from model turns.

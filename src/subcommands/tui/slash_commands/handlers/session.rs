@@ -15,6 +15,12 @@ pub enum ExternalAction {
         /// File path to open.
         path: PathBuf,
     },
+    /// Open the config file in the configured editor. Changes take effect on
+    /// the next launch (no live reload).
+    EditConfig {
+        /// File path to open.
+        path: PathBuf,
+    },
 }
 
 pub fn open_models_command(app: &mut App, _command: &ParsedCommand) {

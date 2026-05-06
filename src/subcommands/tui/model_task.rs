@@ -1,6 +1,7 @@
 use tokio::sync::mpsc;
 
 use crate::{
+    errors::friendly_error,
     providers::execution::{self, ModelRequest},
     subcommands::tui::app::{ModelEvent, PendingRequest},
 };
@@ -26,7 +27,9 @@ pub fn spawn_model_request(
 
         let event = match stream_result {
             Ok(_) => ModelEvent::Finished,
-            Err(error) => ModelEvent::Failed(format!("{provider_label} request failed: {error:#}")),
+            Err(error) => {
+                ModelEvent::Failed(format!("{provider_label}: {}", friendly_error(&error)))
+            }
         };
 
         let _ = model_event_tx.send(event);

@@ -2,7 +2,7 @@ use std::{collections::VecDeque, ffi::OsStr};
 
 use crate::llm::LanguageModel;
 use crate::prompt_rules::RulesState;
-use crate::routing::ModelRouter;
+use crate::routing::{ModelRouter, RouteExplanation};
 use crate::runtime::{Runtime, RuntimeConfig};
 use crate::subcommands::tui::slash_commands::{CommandRegistry, ExternalAction};
 
@@ -176,5 +176,11 @@ impl App {
 
     pub(crate) fn editor_command(&self) -> &OsStr {
         self.runtime.paths().editor()
+    }
+
+    /// Run the router for `prompt` without dispatching to a model. Used by
+    /// `/route` to introspect routing behavior.
+    pub(crate) fn explain_route(&self, prompt: &str) -> RouteExplanation {
+        self.routing.router.explain(prompt)
     }
 }

@@ -9,6 +9,7 @@ const HISTORY_BASE_DIR: &str = ".local/share";
 const HISTORY_DIR: &str = "history";
 const PROJECT_RULES_DIR: &str = ".ai-suite";
 const RULES_FILE: &str = "rules.md";
+const CONFIG_FILE: &str = "config.toml";
 
 const PROJECT_MARKERS: &[&str] = &[
     ".git",
@@ -28,6 +29,7 @@ pub(crate) struct RuntimePaths {
     global_rules_path: PathBuf,
     project_rules_path: PathBuf,
     history_dir: PathBuf,
+    config_file_path: PathBuf,
     editor: OsString,
 }
 
@@ -61,6 +63,7 @@ impl RuntimePaths {
         Self::from_resolved_parts(home_dir, current_dir, project_root, OsString::from("vi"))
     }
 
+
     pub(crate) fn project_root(&self) -> Option<&Path> {
         self.project_root.as_deref()
     }
@@ -80,6 +83,10 @@ impl RuntimePaths {
 
     pub(crate) fn editor(&self) -> &OsStr {
         &self.editor
+    }
+
+    pub(crate) fn config_file_path(&self) -> &Path {
+        &self.config_file_path
     }
 
     pub(crate) fn expand_user_path(&self, path: &str) -> PathBuf {
@@ -105,10 +112,9 @@ impl RuntimePaths {
         project_root: Option<PathBuf>,
         editor: OsString,
     ) -> Self {
-        let global_rules_path = home_dir
-            .join(GLOBAL_CONFIG_DIR)
-            .join(APP_DIR)
-            .join(RULES_FILE);
+        let global_config_dir = home_dir.join(GLOBAL_CONFIG_DIR).join(APP_DIR);
+        let global_rules_path = global_config_dir.join(RULES_FILE);
+        let config_file_path = global_config_dir.join(CONFIG_FILE);
         let project_rules_base = project_root.as_ref().unwrap_or(&current_dir);
         let project_rules_path = project_rules_base.join(PROJECT_RULES_DIR).join(RULES_FILE);
         let history_dir = home_dir
@@ -123,6 +129,7 @@ impl RuntimePaths {
             global_rules_path,
             project_rules_path,
             history_dir,
+            config_file_path,
             editor,
         }
     }

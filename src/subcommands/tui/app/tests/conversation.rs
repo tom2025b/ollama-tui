@@ -1,33 +1,38 @@
-use super::super::{App, ChatMessage, MAX_CONTEXT_TURNS, MAX_STORED_TURNS, ModelEvent};
+use super::super::{App, ChatMessage, ModelEvent};
 use super::support::completed_message;
 
 #[test]
 fn conversation_context_is_bounded_to_recent_completed_turns() {
     let mut app = App::new();
-    for number in 0..10 {
+    let context_limit = app.runtime.config().context().context_turns();
+    for number in 0..(context_limit + 4) {
         app.session.history.push(completed_message(number));
     }
 
     let context = app.conversation_context();
 
-    assert_eq!(context.len(), MAX_CONTEXT_TURNS);
+    assert_eq!(context.len(), context_limit);
     assert_eq!(
         context.first().expect("first context turn").user,
-        "prompt 4"
+        format!("prompt {}", 4)
     );
-    assert_eq!(context.last().expect("last context turn").user, "prompt 9");
+    assert_eq!(
+        context.last().expect("last context turn").user,
+        format!("prompt {}", context_limit + 3)
+    );
 }
 
 #[test]
 fn trim_history_keeps_recent_turns_only() {
     let mut app = App::new();
-    for number in 0..(MAX_STORED_TURNS + 3) {
+    let stored_limit = app.runtime.config().context().stored_turns();
+    for number in 0..(stored_limit + 3) {
         app.session.history.push(completed_message(number));
     }
 
     app.trim_history();
 
-    assert_eq!(app.session.history.len(), MAX_STORED_TURNS);
+    assert_eq!(app.session.history.len(), stored_limit);
     assert_eq!(
         app.session
             .history
@@ -38,7 +43,7 @@ fn trim_history_keeps_recent_turns_only() {
     );
     assert_eq!(
         app.session.history.last().expect("last stored turn").prompt,
-        format!("prompt {}", MAX_STORED_TURNS + 2)
+        format!("prompt {}", stored_limit + 2)
     );
 }
 

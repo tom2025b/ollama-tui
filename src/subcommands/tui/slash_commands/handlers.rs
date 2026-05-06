@@ -1,15 +1,19 @@
 pub mod backends;
 pub mod clear;
 pub mod code_block;
+pub mod config;
 pub mod context_memory;
+pub mod debug;
 pub mod explain;
 pub mod fix;
 pub mod history;
 pub mod history_output;
 pub mod review;
+pub mod route;
 pub mod rules;
 pub mod session;
 pub mod ui_quality;
 
+pub use config::complete_config_edit;
 pub use rules::complete_rules_edit;
 pub use session::ExternalAction;

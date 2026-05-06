@@ -6,7 +6,7 @@ use ratatui::{
     widgets::{Paragraph, Wrap},
 };
 
-use crate::subcommands::tui::app::{App, MAX_CONTEXT_TURNS};
+use crate::subcommands::tui::app::App;
 
 use super::super::theme;
 
@@ -24,7 +24,8 @@ pub(in crate::subcommands::tui::ui) fn draw_session_intel(
         return;
     }
 
-    let context_turns = context_turn_count(app);
+    let context_limit = app.runtime.config().context().context_turns();
+    let context_turns = context_turn_count(app, context_limit);
     let active_state = if app.session.waiting_for_model {
         "streaming"
     } else {
@@ -53,7 +54,7 @@ pub(in crate::subcommands::tui::ui) fn draw_session_intel(
         metric_line(
             app,
             "context",
-            format!("{context_turns}/{MAX_CONTEXT_TURNS}"),
+            format!("{context_turns}/{context_limit}"),
             theme::success_style(app).add_modifier(Modifier::BOLD),
         ),
         metric_line(
@@ -94,11 +95,11 @@ fn metric_line(app: &App, label: &'static str, value: String, value_style: Style
     ])
 }
 
-fn context_turn_count(app: &App) -> usize {
+fn context_turn_count(app: &App, limit: usize) -> usize {
     app.session
         .history
         .iter()
         .filter(|message| message.include_in_context)
         .count()
-        .min(MAX_CONTEXT_TURNS)
+        .min(limit)
 }

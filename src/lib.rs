@@ -1,4 +1,5 @@
 pub mod bootstrap;
+pub mod errors;
 pub mod extensions;
 pub mod tools;
 

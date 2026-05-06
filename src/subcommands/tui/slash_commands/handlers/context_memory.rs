@@ -1,6 +1,6 @@
 use std::fmt::Write as _;
 
-use crate::subcommands::tui::app::{App, ChatMessage, MAX_CONTEXT_TURNS};
+use crate::subcommands::tui::app::{App, ChatMessage};
 use crate::subcommands::tui::slash_commands::parser::ParsedCommand;
 
 const BOOKMARK_USAGE: &str = "Usage: /bookmark [add|remove]";
@@ -88,6 +88,7 @@ fn show_usage(app: &mut App, input: &str, message: &str, status: &str) {
 
 fn context_report(app: &App) -> String {
     let entries = &app.session.history;
+    let context_limit = app.runtime.config().context().context_turns();
     let model_turns = entries.iter().filter(|entry| is_model_turn(entry)).count();
     let remembered = entries
         .iter()
@@ -97,15 +98,11 @@ fn context_report(app: &App) -> String {
         .iter()
         .rev()
         .filter(|entry| ready_for_context(entry))
-        .take(MAX_CONTEXT_TURNS)
+        .take(context_limit)
         .count();
 
     let mut report = String::new();
-    let _ = writeln!(
-        report,
-        "Context window: {next}/{} turn(s)",
-        MAX_CONTEXT_TURNS
-    );
+    let _ = writeln!(report, "Context window: {next}/{context_limit} turn(s)");
     let _ = writeln!(report, "Remembered turns: {remembered}/{model_turns}");
     if let Some(last) = entries.iter().rev().find(|entry| ready_for_context(entry)) {
         let _ = writeln!(report, "Latest remembered: {}", preview(&last.prompt));
@@ -122,11 +119,12 @@ fn memory_report(app: &App) -> String {
 
 fn token_report(app: &App) -> String {
     let entries = &app.session.history;
+    let context_limit = app.runtime.config().context().context_turns();
     let next_tokens: usize = entries
         .iter()
         .rev()
         .filter(|entry| ready_for_context(entry))
-        .take(MAX_CONTEXT_TURNS)
+        .take(context_limit)
         .map(entry_tokens)
         .sum();
     let total_tokens: usize = entries

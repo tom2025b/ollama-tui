@@ -51,6 +51,29 @@ const CORE_COMMANDS: &[CommandDefinition] = &[
         execute: handlers::backends::backends_command,
     },
     CommandDefinition {
+        display_name: "/route",
+        hint: "Trace router decision",
+        detail: "Run the router on a prompt and show which provider it would pick. \
+                 Usage: /route <prompt>  or  /route test <prompt>. No model is called.",
+        names: &[CommandName {
+            name: "/route",
+            visible: true,
+        }],
+        execute: handlers::route::route_command,
+    },
+    CommandDefinition {
+        display_name: "/config",
+        hint: "Show or edit config file",
+        detail: "Show effective settings (`/config`), open the config file in $EDITOR \
+                 (`/config edit`), or print the file path (`/config path`). \
+                 Changes take effect on next launch.",
+        names: &[CommandName {
+            name: "/config",
+            visible: true,
+        }],
+        execute: handlers::config::config_command,
+    },
+    CommandDefinition {
         display_name: "/rules",
         hint: "Edit or toggle rules",
         detail: "Edit, show, enable, disable, or toggle rule loading.",
@@ -101,6 +124,17 @@ const CORE_COMMANDS: &[CommandDefinition] = &[
             visible: true,
         }],
         execute: handlers::review::review_command,
+    },
+    CommandDefinition {
+        display_name: "/debug",
+        hint: "Toggle full error details",
+        detail: "Toggle whether model failures show the full technical error chain \
+                 (helpful for debugging) or the short friendly summary (default).",
+        names: &[CommandName {
+            name: "/debug",
+            visible: true,
+        }],
+        execute: handlers::debug::debug_command,
     },
     CommandDefinition {
         display_name: "/quit",

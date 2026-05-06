@@ -1,11 +1,5 @@
 use crate::llm::{ConversationTurn, RouteDecision};
 
-/// Maximum completed exchanges kept in memory and shown in the TUI.
-pub(crate) const MAX_STORED_TURNS: usize = 200;
-
-/// Maximum completed exchanges sent back to the next model request.
-pub(crate) const MAX_CONTEXT_TURNS: usize = 6;
-
 /// Lightweight ASCII spinner used while the model is active.
 pub(crate) const SPINNER_FRAMES: &[&str] = &["-", "\\", "|", "/"];
 

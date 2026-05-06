@@ -1,8 +1,9 @@
-use super::super::{App, MAX_CONTEXT_TURNS, MAX_STORED_TURNS};
+use super::super::App;
 use crate::llm::ConversationTurn;
 
 impl App {
     pub(crate) fn conversation_context(&self) -> Vec<ConversationTurn> {
+        let limit = self.runtime.config().context().context_turns();
         let mut turns = self
             .session
             .history
@@ -14,7 +15,7 @@ impl App {
                     && !message.failed
                     && !message.answer.trim().is_empty()
             })
-            .take(MAX_CONTEXT_TURNS)
+            .take(limit)
             .map(|message| ConversationTurn {
                 user: message.prompt.clone(),
                 assistant: message.answer.clone(),
@@ -26,7 +27,8 @@ impl App {
     }
 
     pub(crate) fn trim_history(&mut self) {
-        let overflow = self.session.history.len().saturating_sub(MAX_STORED_TURNS);
+        let limit = self.runtime.config().context().stored_turns();
+        let overflow = self.session.history.len().saturating_sub(limit);
         if overflow > 0 {
             self.session.history.drain(0..overflow);
         }

@@ -1,9 +1,12 @@
 mod catalog;
+mod explain;
 mod profile;
 mod selection;
 
 use crate::llm::{LanguageModel, Provider, RouteDecision};
 use profile::PromptProfile;
+
+pub use explain::RouteExplanation;
 
 #[cfg(test)]
 pub(crate) use crate::runtime::DEFAULT_FAST_OLLAMA_MODEL;

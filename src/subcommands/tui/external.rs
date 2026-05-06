@@ -15,9 +15,18 @@ pub fn run_external_action(
     action: ExternalAction,
 ) -> Result<()> {
     match action {
-        ExternalAction::ClaudeCode { working_dir } => {
+        ExternalAction::ClaudeCode {
+            working_dir,
+            prompt,
+        } => {
             suspend_terminal(terminal)?;
-            let result = Command::new("claude").current_dir(&working_dir).status();
+            // Pass the prompt as a positional argument so Claude Code opens
+            // with context. Interactive behaviour depends on the installed CLI
+            // version; if unsupported, Claude Code simply opens normally.
+            let result = Command::new("claude")
+                .arg(&prompt)
+                .current_dir(&working_dir)
+                .status();
             resume_terminal(terminal)?;
 
             let result = match result {
@@ -28,9 +37,16 @@ pub fn run_external_action(
 
             handlers::session::complete_claude_session(app, result);
         }
-        ExternalAction::CodexCli { working_dir } => {
+        ExternalAction::CodexCli {
+            working_dir,
+            prompt,
+        } => {
             suspend_terminal(terminal)?;
-            let result = Command::new("codex").current_dir(&working_dir).status();
+            // Codex CLI accepts an initial prompt as a positional argument.
+            let result = Command::new("codex")
+                .arg(&prompt)
+                .current_dir(&working_dir)
+                .status();
             resume_terminal(terminal)?;
 
             let result = match result {

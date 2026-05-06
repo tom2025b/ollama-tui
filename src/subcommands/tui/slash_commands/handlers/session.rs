@@ -11,12 +11,16 @@ pub enum ExternalAction {
     ClaudeCode {
         /// Directory to launch Claude Code in.
         working_dir: PathBuf,
+        /// The user's prompt, forwarded as a CLI argument so Claude Code starts with context.
+        prompt: String,
     },
 
     /// Suspend the TUI and hand control to the `codex` CLI.
     CodexCli {
         /// Directory to launch Codex in.
         working_dir: PathBuf,
+        /// The user's prompt, forwarded as a CLI argument so Codex starts with context.
+        prompt: String,
     },
 
     /// Open a rules file in the configured editor, then reload rules when it exits.

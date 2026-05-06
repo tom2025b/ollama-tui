@@ -30,24 +30,21 @@ impl App {
         }
 
         let route = self.route_prompt(&prompt);
-        let context = self.conversation_context();
-        let prompt_for_model = self.prompt_for_model(&prompt);
-        let model_name = route.model.display_label();
-        let route_reason = if let Some(rules_summary) = self.rules.application_summary() {
-            format!("{} {}", route.reason, rules_summary)
-        } else {
-            route.reason.clone()
-        };
 
-        if let Some(action) = self.terminal_action_for_route(&route) {
+        // Terminal apps (Claude Code, Codex) get the prompt forwarded directly as
+        // a CLI argument. We skip context and rules-wrapping here — those are
+        // Ollama-specific concerns; terminal apps have their own context systems.
+        if let Some(action) = self.terminal_action_for_route(&route, &prompt) {
             self.session.input.clear();
             self.ui.scroll_offset = 0;
-            self.ui.status = format!("Opening {model_name}...");
+            let model_name = route.model.display_label();
+            self.ui.status = format!("Forwarding to {model_name}...");
             self.session.history.push(ChatMessage {
-                prompt,
+                prompt: prompt.clone(),
                 model_name,
-                route_reason,
-                answer: "Opened the terminal app in the project root. Continue the work there, then exit to return here.".to_string(),
+                route_reason: route.reason,
+                answer: "→ Prompt forwarded. Working in terminal app — exit to return here."
+                    .to_string(),
                 in_progress: false,
                 failed: false,
                 include_in_context: false,
@@ -57,6 +54,16 @@ impl App {
             self.commands.queue_external_action(action);
             return None;
         }
+
+        // Ollama streaming path.
+        let context = self.conversation_context();
+        let prompt_for_model = self.prompt_for_model(&prompt);
+        let model_name = route.model.display_label();
+        let route_reason = if let Some(rules_summary) = self.rules.application_summary() {
+            format!("{} {}", route.reason, rules_summary)
+        } else {
+            route.reason.clone()
+        };
 
         self.session.input.clear();
         self.session.waiting_for_model = true;
@@ -114,7 +121,11 @@ impl App {
         self.routing.router.route(prompt)
     }
 
-    fn terminal_action_for_route(&self, route: &RouteDecision) -> Option<ExternalAction> {
+    fn terminal_action_for_route(
+        &self,
+        route: &RouteDecision,
+        prompt: &str,
+    ) -> Option<ExternalAction> {
         let working_dir = self
             .runtime
             .paths()
@@ -123,8 +134,14 @@ impl App {
             .unwrap_or_else(|| PathBuf::from("."));
 
         match route.model.provider {
-            Provider::ClaudeCode => Some(ExternalAction::ClaudeCode { working_dir }),
-            Provider::Codex => Some(ExternalAction::CodexCli { working_dir }),
+            Provider::ClaudeCode => Some(ExternalAction::ClaudeCode {
+                working_dir,
+                prompt: prompt.to_string(),
+            }),
+            Provider::Codex => Some(ExternalAction::CodexCli {
+                working_dir,
+                prompt: prompt.to_string(),
+            }),
             Provider::Ollama => None,
         }
     }

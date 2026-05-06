@@ -78,6 +78,29 @@ fn pinned_claude_launches_terminal_app_instead_of_model_request() {
 }
 
 #[test]
+fn terminal_launch_forwards_prompt_to_action() {
+    let mut app = App::new();
+    let claude = app
+        .pickable_models()
+        .into_iter()
+        .find(|model| model.provider == Provider::ClaudeCode)
+        .expect("Claude Code target is pickable")
+        .clone();
+    app.routing.pinned_model = Some(claude);
+    app.session.input = "debug the allocator".to_string();
+
+    app.submit_prompt();
+    let action = app.take_external_action();
+
+    match action.expect("action should be queued") {
+        ExternalAction::ClaudeCode { prompt, .. } => {
+            assert_eq!(prompt, "debug the allocator");
+        }
+        other => panic!("expected ClaudeCode action, got {other:?}"),
+    }
+}
+
+#[test]
 fn complex_auto_route_launches_claude_terminal_app() {
     let mut app = App::new();
     app.session.input =

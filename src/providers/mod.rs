@@ -1,7 +1,7 @@
 pub(crate) mod execution;
 
-pub mod anthropic;
-pub mod ollama;
-pub mod openai;
-pub mod openai_compatible;
-pub mod xai;
+pub(crate) mod anthropic;
+pub(crate) mod ollama;
+pub(crate) mod openai;
+pub(crate) mod openai_compatible;
+pub(crate) mod xai;

@@ -1,6 +1,6 @@
 mod report;
 
-use crate::history as history_io;
+use crate::storage::history as history_io;
 use crate::subcommands::tui::slash_commands::parser::ParsedCommand;
 
 pub(super) use self::report::history_report;

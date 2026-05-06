@@ -1,7 +1,7 @@
 use std::collections::BTreeSet;
 use std::fmt::Write as _;
 
-use crate::history as history_io;
+use crate::storage::history as history_io;
 use crate::subcommands::tui::slash_commands::parser::ParsedCommand;
 
 use super::history::history_report;

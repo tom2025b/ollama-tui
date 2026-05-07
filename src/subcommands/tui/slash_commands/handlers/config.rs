@@ -19,10 +19,7 @@ pub fn config_command(app: &mut App, command: &ParsedCommand) {
         Some("edit") => edit_config(app, command.raw()),
         Some("path") => show_path(app, command.raw()),
         _ => {
-            app.append_local_message(
-                command.raw(),
-                "Usage: /config [show|edit|path]".to_string(),
-            );
+            app.append_local_message(command.raw(), "Usage: /config [show|edit|path]".to_string());
             app.ui.status = "Unknown /config subcommand.".to_string();
         }
     }
@@ -39,7 +36,10 @@ fn show_path(app: &mut App, raw: &str) {
     let body = if path.exists() {
         format!("Config file: {} (exists)", path.display())
     } else {
-        format!("Config file: {} (not created yet — `/config edit` will create it)", path.display())
+        format!(
+            "Config file: {} (not created yet — `/config edit` will create it)",
+            path.display()
+        )
     };
     app.append_local_message(raw, body);
     app.ui.status = "Showed config path.".to_string();

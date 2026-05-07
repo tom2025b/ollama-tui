@@ -67,9 +67,7 @@ fn short_summary(error: &anyhow::Error) -> String {
     if head.is_empty() {
         "Something went wrong. Re-run with AI_SUITE_DEBUG=1 for details.".to_string()
     } else {
-        format!(
-            "{head}. Re-run with AI_SUITE_DEBUG=1 (or type /debug) for the full error."
-        )
+        format!("{head}. Re-run with AI_SUITE_DEBUG=1 (or type /debug) for the full error.")
     }
 }
 
@@ -204,9 +202,9 @@ fn detect_provider_with_http(chain: &str, codes: &[&str]) -> Option<&'static str
         return None;
     };
 
-    let mentions_code = codes
-        .iter()
-        .any(|code| chain.contains(&format!("http {code}")) || chain.contains(&format!(" {code} ")));
+    let mentions_code = codes.iter().any(|code| {
+        chain.contains(&format!("http {code}")) || chain.contains(&format!(" {code} "))
+    });
 
     mentions_code.then_some(provider)
 }
@@ -237,9 +235,8 @@ mod tests {
 
     #[test]
     fn translates_missing_api_key() {
-        let e = err("environment variable not found").context(
-            "Anthropic backend requires the `ANTHROPIC_API_KEY` environment variable",
-        );
+        let e = err("environment variable not found")
+            .context("Anthropic backend requires the `ANTHROPIC_API_KEY` environment variable");
         let out = classify_of(&e).expect("should classify");
         assert!(out.contains("ANTHROPIC_API_KEY"), "got: {out}");
         assert!(out.contains("Claude"), "got: {out}");
@@ -247,7 +244,8 @@ mod tests {
 
     #[test]
     fn translates_http_401_for_openai() {
-        let e = err("OpenAI returned HTTP 401 Unauthorized. Response body: {\"error\":\"bad key\"}");
+        let e =
+            err("OpenAI returned HTTP 401 Unauthorized. Response body: {\"error\":\"bad key\"}");
         let out = classify_of(&e).expect("should classify");
         assert!(out.contains("OpenAI"), "got: {out}");
         assert!(out.contains("rejected"), "got: {out}");
@@ -274,7 +272,10 @@ mod tests {
     fn translates_context_window_overflow() {
         let e = err("openai returned: maximum context length is 8192 tokens");
         let out = classify_of(&e).expect("should classify");
-        assert!(out.contains("/clear") || out.contains("too long"), "got: {out}");
+        assert!(
+            out.contains("/clear") || out.contains("too long"),
+            "got: {out}"
+        );
     }
 
     #[test]

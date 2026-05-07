@@ -63,7 +63,6 @@ impl RuntimePaths {
         Self::from_resolved_parts(home_dir, current_dir, project_root, OsString::from("vi"))
     }
 
-
     pub(crate) fn project_root(&self) -> Option<&Path> {
         self.project_root.as_deref()
     }

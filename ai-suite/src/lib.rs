@@ -15,4 +15,6 @@ mod subcommands;
 
 pub use bootstrap::run;
 pub use llm::ConversationTurn;
-pub use stream::stream_prompt;
+pub use stream::{
+    ModelInfo, available_models, route_prompt, stream_prompt, stream_prompt_with_model,
+};

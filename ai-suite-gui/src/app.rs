@@ -1,156 +1,430 @@
-use ai_suite::ConversationTurn;
-use egui::{Color32, Frame, Key, Layout, Margin, Modifiers, RichText, Rounding, ScrollArea};
+use std::time::Duration;
+
+use ai_suite::{ModelInfo, available_models, route_prompt};
+use egui::{Key, Modifiers};
 use tokio::{runtime::Handle, sync::mpsc};
 
 use crate::backend::{BackendEvent, spawn_request};
-
-// ---------------------------------------------------------------------------
-// Data types
-// ---------------------------------------------------------------------------
-
-// Derives PartialEq so we can compare roles in conversation_context().
-#[derive(PartialEq)]
-enum Role {
-    User,
-    Assistant,
-}
-
-struct ChatMessage {
-    role: Role,
-    content: String,
-    /// False while the assistant is still streaming this message.
-    complete: bool,
-    /// True if this message contains an error from the backend.
-    is_error: bool,
-}
-
-// ---------------------------------------------------------------------------
-// App state
-// ---------------------------------------------------------------------------
+use crate::commands::{self, ParsedCommand};
+use crate::message::{ChatMessage, Role, conversation_context};
+use crate::settings::GuiPreferences;
 
 pub struct App {
-    messages: Vec<ChatMessage>,
-    input: String,
-    /// Shown in the top-right bar. "Ready" until the first response arrives.
-    current_model: String,
-    rx: Option<mpsc::UnboundedReceiver<BackendEvent>>,
-    streaming: bool,
+    pub(crate) messages: Vec<ChatMessage>,
+    pub(crate) input: String,
+    pub(crate) models: Vec<ModelInfo>,
+    pub(crate) selected_model_id: Option<String>,
+    pub(crate) last_model_label: Option<String>,
+    pub(crate) status: String,
+    pub(crate) show_help: bool,
+    pub(crate) show_model_picker: bool,
+    pub(crate) debug_errors: bool,
+    pub(crate) text_scale: f32,
+    pub(crate) command_suggestion_index: usize,
+    command_suggestions_dismissed_for: Option<String>,
+    pub(crate) streaming: bool,
+    pub(crate) rx: Option<mpsc::UnboundedReceiver<BackendEvent>>,
     handle: Handle,
 }
 
 impl App {
     pub fn new(handle: Handle) -> Self {
+        let preferences = GuiPreferences::load();
         Self {
             messages: Vec::new(),
             input: String::new(),
-            current_model: "Ready".to_string(),
-            rx: None,
+            models: available_models(),
+            selected_model_id: None,
+            last_model_label: None,
+            status: "Ready".to_string(),
+            show_help: false,
+            show_model_picker: false,
+            debug_errors: false,
+            text_scale: preferences.text_scale,
+            command_suggestion_index: 0,
+            command_suggestions_dismissed_for: None,
             streaming: false,
+            rx: None,
             handle,
         }
     }
 
-    // -----------------------------------------------------------------------
-    // Logic
-    // -----------------------------------------------------------------------
-
-    /// Build context from all completed user/assistant pairs so far.
-    fn conversation_context(&self) -> Vec<ConversationTurn> {
-        let complete: Vec<&ChatMessage> = self
-            .messages
-            .iter()
-            .filter(|m| m.complete && !m.is_error)
-            .collect();
-
-        // Pair consecutive user+assistant messages into ConversationTurn.
-        complete
-            .chunks(2)
-            .filter_map(|pair| {
-                if pair.len() == 2
-                    && pair[0].role == Role::User
-                    && pair[1].role == Role::Assistant
-                {
-                    Some(ConversationTurn {
-                        user: pair[0].content.clone(),
-                        assistant: pair[1].content.clone(),
-                    })
-                } else {
-                    None
-                }
-            })
-            .collect()
+    pub(crate) fn selected_model_label(&self) -> String {
+        self.selected_model()
+            .map(|model| model.label.clone())
+            .unwrap_or_else(|| "Auto Router".to_string())
     }
 
-    /// Validate, build context, push placeholder messages, fire backend task.
-    fn send_message(&mut self, ctx: &egui::Context) {
+    pub(crate) fn selected_model(&self) -> Option<&ModelInfo> {
+        let selected = self.selected_model_id.as_ref()?;
+        self.models.iter().find(|model| &model.id == selected)
+    }
+
+    pub(crate) fn send_current_input(&mut self, ctx: &egui::Context) {
         let prompt = self.input.trim().to_string();
         if prompt.is_empty() || self.streaming {
             return;
         }
 
-        // Snapshot context BEFORE adding the new user message so the current
-        // prompt isn't included as prior context.
-        let context = self.conversation_context();
+        if prompt == "?" {
+            self.input.clear();
+            self.open_help(ctx);
+            return;
+        }
 
-        self.messages.push(ChatMessage {
-            role: Role::User,
-            content: prompt.clone(),
-            complete: true,
-            is_error: false,
-        });
+        if let Some(command) = commands::parse_slash_command(&prompt) {
+            self.input.clear();
+            self.execute_command(command, ctx);
+            return;
+        }
 
-        // Empty placeholder — streaming tokens will fill this in.
-        self.messages.push(ChatMessage {
-            role: Role::Assistant,
-            content: String::new(),
-            complete: false,
-            is_error: false,
-        });
+        self.input.clear();
+        self.send_prompt(prompt, ctx);
+    }
+
+    pub(crate) fn consume_enter(&self, ctx: &egui::Context, input_id: egui::Id) -> bool {
+        let had_focus = ctx.memory(|memory| memory.has_focus(input_id));
+        had_focus && ctx.input_mut(|input| input.consume_key(Modifiers::NONE, Key::Enter))
+    }
+
+    pub(crate) fn command_suggestions(&self) -> Vec<&'static commands::CommandSpec> {
+        if self
+            .command_suggestions_dismissed_for
+            .as_deref()
+            .map(|dismissed| dismissed == self.input)
+            .unwrap_or(false)
+        {
+            return Vec::new();
+        }
+        commands::suggestions(&self.input)
+    }
+
+    pub(crate) fn input_id() -> egui::Id {
+        egui::Id::new("main_input")
+    }
+
+    pub(crate) fn request_input_focus(&self, ctx: &egui::Context) {
+        ctx.memory_mut(|memory| memory.request_focus(Self::input_id()));
+    }
+
+    pub(crate) fn on_input_changed(&mut self) {
+        self.command_suggestion_index = 0;
+        if self.command_suggestions_dismissed_for.as_deref() != Some(self.input.as_str()) {
+            self.command_suggestions_dismissed_for = None;
+        }
+        if self.input.trim() == "?" {
+            self.input.clear();
+            self.show_help = true;
+            self.status = "Help opened".to_string();
+        }
+    }
+
+    pub(crate) fn suggestion_index(&self) -> usize {
+        let suggestions = self.command_suggestions();
+        if suggestions.is_empty() {
+            0
+        } else {
+            self.command_suggestion_index.min(suggestions.len() - 1)
+        }
+    }
+
+    pub(crate) fn select_next_suggestion(&mut self) {
+        let total = self.command_suggestions().len();
+        if total == 0 {
+            self.command_suggestion_index = 0;
+        } else {
+            self.command_suggestion_index = (self.suggestion_index() + 1) % total;
+        }
+    }
+
+    pub(crate) fn select_previous_suggestion(&mut self) {
+        let total = self.command_suggestions().len();
+        if total == 0 {
+            self.command_suggestion_index = 0;
+        } else {
+            self.command_suggestion_index = if self.suggestion_index() == 0 {
+                total - 1
+            } else {
+                self.suggestion_index() - 1
+            };
+        }
+    }
+
+    pub(crate) fn dismiss_command_suggestions(&mut self) {
+        if !self.command_suggestions().is_empty() {
+            self.command_suggestions_dismissed_for = Some(self.input.clone());
+        }
+        self.command_suggestion_index = 0;
+    }
+
+    pub(crate) fn complete_command_suggestion(&mut self, command: &commands::CommandSpec) {
+        self.input = format!("{} ", command.name);
+        self.command_suggestion_index = 0;
+        self.command_suggestions_dismissed_for = None;
+    }
+
+    pub(crate) fn handle_suggestion_enter(&mut self, ctx: &egui::Context) -> bool {
+        let suggestions = self.command_suggestions();
+        let Some(command) = suggestions.get(self.suggestion_index()).copied() else {
+            return false;
+        };
+
+        let exact = self.input.trim().eq_ignore_ascii_case(command.name);
+        if exact && !command.needs_argument() {
+            let raw = command.name.to_string();
+            self.input.clear();
+            if let Some(parsed) = commands::parse_slash_command(&raw) {
+                self.execute_command(parsed, ctx);
+            }
+        } else {
+            self.complete_command_suggestion(command);
+        }
+        true
+    }
+
+    pub(crate) fn append_local_message(&mut self, command: &str, body: String) {
+        self.messages
+            .push(ChatMessage::local(format!("{command}\n\n{body}")));
+    }
+
+    pub(crate) fn completed_turn_count(&self) -> usize {
+        conversation_context(&self.messages).len()
+    }
+
+    fn send_prompt(&mut self, prompt: String, ctx: &egui::Context) {
+        let context = conversation_context(&self.messages);
+        let model_id = self.selected_model_id.clone();
+        let model_label = self.selected_model_label();
+
+        self.messages.push(ChatMessage::user(prompt.clone()));
+        self.messages.push(ChatMessage::assistant(model_label));
 
         let (tx, rx) = mpsc::unbounded_channel();
         self.rx = Some(rx);
         self.streaming = true;
-        self.input.clear();
+        self.status = "Streaming response".to_string();
 
-        spawn_request(prompt, context, tx, ctx.clone(), self.handle.clone());
+        spawn_request(
+            prompt,
+            context,
+            model_id,
+            tx,
+            ctx.clone(),
+            self.handle.clone(),
+        );
     }
 
-    /// Drain all pending backend events into the message list.
-    fn drain_channel(&mut self) {
-        loop {
-            // Borrow self.rx briefly to pull one event out by value, then
-            // drop the borrow so match arms can freely mutate other fields
-            // (including setting self.rx = None on Done/Error).
-            let event = match self.rx.as_mut() {
-                Some(rx) => match rx.try_recv() {
-                    Ok(event) => event,
-                    Err(_) => break,
-                },
-                None => break,
-            };
+    fn execute_command(&mut self, command: ParsedCommand, ctx: &egui::Context) {
+        match command.name() {
+            "/clear" => {
+                self.messages.clear();
+                self.status = "Conversation cleared".to_string();
+            }
+            "/help" => {
+                self.open_help(ctx);
+            }
+            "/model" => self.execute_model_command(&command),
+            "/models" | "/backend" | "/backends" => {
+                self.append_local_message(command.raw(), self.format_models());
+                self.status = "Backend readiness listed".to_string();
+            }
+            "/route" => self.execute_route_command(&command),
+            "/summary" => {
+                self.append_local_message(command.raw(), self.format_summary());
+                self.status = "Session summary generated".to_string();
+            }
+            "/debug" => {
+                self.debug_errors = !self.debug_errors;
+                let state = if self.debug_errors { "on" } else { "off" };
+                self.append_local_message(
+                    command.raw(),
+                    format!("Verbose backend errors: {state}"),
+                );
+                self.status = format!("Debug errors {state}");
+            }
+            "/quit" | "/exit" | "/q" => {
+                ctx.send_viewport_cmd(egui::ViewportCommand::Close);
+            }
+            name => {
+                let hint = commands::find_command(name)
+                    .map(|command| command.usage.to_string())
+                    .unwrap_or_else(|| "/help".to_string());
+                self.append_local_message(
+                    command.raw(),
+                    format!("Unknown command `{name}`.\n\nTry `{hint}`."),
+                );
+                self.status = "Unknown command".to_string();
+            }
+        }
+    }
 
+    fn open_help(&mut self, ctx: &egui::Context) {
+        self.show_help = true;
+        self.status = "Help opened".to_string();
+        self.request_input_focus(ctx);
+    }
+
+    fn execute_model_command(&mut self, command: &ParsedCommand) {
+        let body = commands::command_body(command);
+        if body.trim().is_empty() {
+            self.show_model_picker = true;
+            self.status = "Model picker opened".to_string();
+            return;
+        }
+
+        match self.select_model_by_query(&commands::unquote(&body)) {
+            Ok(label) => {
+                self.append_local_message(command.raw(), format!("Routing mode: {label}"));
+                self.status = format!("Selected {label}");
+            }
+            Err(message) => {
+                self.append_local_message(command.raw(), message);
+                self.status = "Model selection failed".to_string();
+            }
+        }
+    }
+
+    fn execute_route_command(&mut self, command: &ParsedCommand) {
+        let mut args = command.args();
+        if args
+            .first()
+            .map(|first| first.eq_ignore_ascii_case("test"))
+            .unwrap_or(false)
+        {
+            args = &args[1..];
+        }
+
+        let prompt = commands::unquote(&args.join(" "));
+        if prompt.is_empty() {
+            self.append_local_message(command.raw(), "Usage: /route <prompt>".to_string());
+            self.status = "Route command needs a prompt".to_string();
+            return;
+        }
+
+        self.append_local_message(command.raw(), route_prompt(&prompt));
+        self.status = "Router trace generated".to_string();
+    }
+
+    fn select_model_by_query(&mut self, query: &str) -> Result<String, String> {
+        let trimmed = query.trim();
+        if trimmed.eq_ignore_ascii_case("auto") {
+            self.selected_model_id = None;
+            return Ok("Auto Router".to_string());
+        }
+
+        let needle = trimmed.to_ascii_lowercase();
+        let matches = self
+            .models
+            .iter()
+            .filter(|model| {
+                model.enabled
+                    && (model.id.to_ascii_lowercase().contains(&needle)
+                        || model.name.to_ascii_lowercase().contains(&needle)
+                        || model.label.to_ascii_lowercase().contains(&needle))
+            })
+            .cloned()
+            .collect::<Vec<_>>();
+
+        match matches.as_slice() {
+            [] => Err(format!("No enabled model matches `{trimmed}`.")),
+            [model] => {
+                self.selected_model_id = Some(model.id.clone());
+                Ok(model.label.clone())
+            }
+            _ => {
+                let labels = matches
+                    .iter()
+                    .map(|model| format!("- {}", model.label))
+                    .collect::<Vec<_>>()
+                    .join("\n");
+                Err(format!(
+                    "Multiple enabled models match `{trimmed}`:\n{labels}"
+                ))
+            }
+        }
+    }
+
+    fn format_models(&self) -> String {
+        let rows = self
+            .models
+            .iter()
+            .map(|model| {
+                let state = if model.enabled {
+                    "ready"
+                } else {
+                    "unavailable"
+                };
+                let detail = if model.enabled {
+                    model.strengths.join(", ")
+                } else {
+                    model
+                        .disabled_reason
+                        .clone()
+                        .unwrap_or_else(|| "disabled".to_string())
+                };
+                format!("- [{state}] {}\n  {detail}", model.label)
+            })
+            .collect::<Vec<_>>()
+            .join("\n");
+
+        format!("Routing mode: {}\n\n{rows}", self.selected_model_label())
+    }
+
+    fn format_summary(&self) -> String {
+        let user_messages = self
+            .messages
+            .iter()
+            .filter(|message| message.role == Role::User)
+            .count();
+        let assistant_messages = self
+            .messages
+            .iter()
+            .filter(|message| message.role == Role::Assistant && message.complete)
+            .count();
+        let last_model = self.last_model_label.as_deref().unwrap_or("none yet");
+
+        format!(
+            "Messages: {user_messages} user, {assistant_messages} assistant\n\
+             Completed context turns: {}\n\
+             Routing mode: {}\n\
+             Last model: {last_model}",
+            self.completed_turn_count(),
+            self.selected_model_label(),
+        )
+    }
+
+    fn drain_channel(&mut self) {
+        while let Some(event) = self.try_recv_backend_event() {
             match event {
                 BackendEvent::Token(token) => {
-                    if let Some(msg) = self.messages.last_mut() {
-                        msg.content.push_str(&token);
+                    if let Some(message) = self.messages.last_mut() {
+                        message.content.push_str(&token);
                     }
                 }
-                BackendEvent::Done { full_text, model_name } => {
-                    if let Some(msg) = self.messages.last_mut() {
-                        msg.content = full_text;
-                        msg.complete = true;
+                BackendEvent::Done {
+                    full_text,
+                    model_name,
+                } => {
+                    let model_label = self.model_display_label(&model_name);
+                    if let Some(message) = self.messages.last_mut() {
+                        message.content = full_text;
+                        message.complete = true;
+                        message.model_label = Some(model_label.clone());
                     }
-                    self.current_model = model_name;
+                    self.last_model_label = Some(model_label.clone());
+                    self.status = format!("Completed with {model_label}");
                     self.streaming = false;
                     self.rx = None;
                     break;
                 }
-                BackendEvent::Error(e) => {
-                    if let Some(msg) = self.messages.last_mut() {
-                        msg.content = format!("Error: {e}");
-                        msg.complete = true;
-                        msg.is_error = true;
+                BackendEvent::Error(error) => {
+                    let error_text = self.error_text(&error);
+                    if let Some(message) = self.messages.last_mut() {
+                        message.content = error_text;
+                        message.complete = true;
+                        message.is_error = true;
                     }
+                    self.status = "Backend error".to_string();
                     self.streaming = false;
                     self.rx = None;
                     break;
@@ -159,162 +433,36 @@ impl App {
         }
     }
 
-    // -----------------------------------------------------------------------
-    // Rendering
-    // -----------------------------------------------------------------------
-
-    fn render_top_bar(&self, ctx: &egui::Context) {
-        let text_col = Color32::from_rgb(0xcd, 0xd6, 0xf4);
-        let accent = Color32::from_rgb(0x89, 0xb4, 0xfa);
-
-        egui::TopBottomPanel::top("top_bar").show(ctx, |ui| {
-            ui.add_space(2.0);
-            ui.horizontal(|ui| {
-                ui.add_space(4.0);
-                ui.label(RichText::new("ai-suite").strong().color(text_col).size(15.0));
-                ui.with_layout(Layout::right_to_left(egui::Align::Center), |ui| {
-                    ui.add_space(4.0);
-                    ui.label(RichText::new(&self.current_model).color(accent).size(13.0));
-                });
-            });
-            ui.add_space(2.0);
-        });
+    fn try_recv_backend_event(&mut self) -> Option<BackendEvent> {
+        self.rx.as_mut()?.try_recv().ok()
     }
 
-    fn render_input_bar(&mut self, ctx: &egui::Context) {
-        let text_col = Color32::from_rgb(0xcd, 0xd6, 0xf4);
-        let input_bg = Color32::from_rgb(0x18, 0x18, 0x25);
-        let btn_col = Color32::from_rgb(0x89, 0xb4, 0xfa);
-        let input_id = egui::Id::new("main_input");
-
-        egui::TopBottomPanel::bottom("input_panel").show(ctx, |ui| {
-            ui.add_space(8.0);
-            ui.horizontal(|ui| {
-                // Consume Enter (without Shift) before TextEdit sees it so it
-                // triggers a send rather than inserting a newline character.
-                let had_focus = ctx.memory(|m| m.has_focus(input_id));
-                let enter_hit = had_focus
-                    && ctx.input_mut(|i| i.consume_key(Modifiers::NONE, Key::Enter));
-
-                let text_edit = egui::TextEdit::multiline(&mut self.input)
-                    .id(input_id)
-                    .hint_text("Type a message…  (Enter to send, Shift+Enter for newline)")
-                    .desired_rows(1)
-                    .desired_width(ui.available_width() - 52.0)
-                    .text_color(text_col)
-                    .frame(false);
-
-                Frame::none()
-                    .fill(input_bg)
-                    .rounding(Rounding::same(6.0))
-                    .inner_margin(Margin { left: 10.0, right: 10.0, top: 6.0, bottom: 6.0 })
-                    .show(ui, |ui| {
-                        ui.add(text_edit);
-                    });
-
-                let send_btn = ui.add_enabled(
-                    !self.streaming,
-                    egui::Button::new(RichText::new("▶").color(btn_col))
-                        .min_size([40.0, 32.0].into()),
-                );
-
-                if (enter_hit || send_btn.clicked()) && !self.streaming {
-                    self.send_message(ctx);
-                    ctx.memory_mut(|m| m.request_focus(input_id));
-                }
-            });
-            ui.add_space(8.0);
-        });
+    fn model_display_label(&self, model_name: &str) -> String {
+        self.models
+            .iter()
+            .find(|model| model.name == model_name)
+            .map(|model| model.label.clone())
+            .unwrap_or_else(|| model_name.to_string())
     }
 
-    fn render_messages(&self, ctx: &egui::Context) {
-        let bg = Color32::from_rgb(0x1e, 0x1e, 0x2e);
-        let text_col = Color32::from_rgb(0xcd, 0xd6, 0xf4);
-        let user_bg = Color32::from_rgb(0x45, 0x47, 0x8a);
-        let asst_bg = Color32::from_rgb(0x31, 0x32, 0x44);
-        let err_bg = Color32::from_rgb(0x7a, 0x25, 0x25);
-
-        egui::CentralPanel::default()
-            .frame(Frame::none().fill(bg))
-            .show(ctx, |ui| {
-                ScrollArea::vertical()
-                    .auto_shrink([false, false])
-                    .stick_to_bottom(true)
-                    .show(ui, |ui| {
-                        ui.add_space(10.0);
-
-                        for msg in &self.messages {
-                            let bubble_bg = if msg.is_error {
-                                err_bg
-                            } else if msg.role == Role::User {
-                                user_bg
-                            } else {
-                                asst_bg
-                            };
-
-                            // Append blinking cursor while the response streams in.
-                            let text = if !msg.complete {
-                                format!("{}▌", msg.content)
-                            } else {
-                                msg.content.clone()
-                            };
-
-                            let bubble = Frame::none()
-                                .fill(bubble_bg)
-                                .rounding(Rounding::same(8.0))
-                                .inner_margin(Margin {
-                                    left: 12.0,
-                                    right: 12.0,
-                                    top: 8.0,
-                                    bottom: 8.0,
-                                });
-
-                            if msg.role == Role::User {
-                                ui.with_layout(
-                                    Layout::right_to_left(egui::Align::TOP),
-                                    |ui| {
-                                        bubble.show(ui, |ui| {
-                                            ui.set_max_width(ui.available_width() * 0.72);
-                                            ui.label(
-                                                RichText::new(&text).color(text_col).size(14.0),
-                                            );
-                                        });
-                                    },
-                                );
-                            } else {
-                                bubble.show(ui, |ui| {
-                                    ui.set_max_width(ui.available_width() * 0.88);
-                                    ui.label(RichText::new(&text).color(text_col).size(14.0));
-                                });
-                            }
-
-                            ui.add_space(6.0);
-                        }
-
-                        ui.add_space(4.0);
-                    });
-            });
+    fn error_text(&self, error: &str) -> String {
+        if self.debug_errors {
+            format!("Error: {error}")
+        } else {
+            format!("The backend could not complete the request.\n\n{error}")
+        }
     }
 }
 
-// ---------------------------------------------------------------------------
-// eframe integration
-// ---------------------------------------------------------------------------
-
 impl eframe::App for App {
     fn update(&mut self, ctx: &egui::Context, _frame: &mut eframe::Frame) {
-        // Apply backend events before rendering so new tokens are visible this frame.
+        crate::theme::apply(ctx, self.text_scale);
         self.drain_channel();
 
-        // Keep repainting while streaming so the cursor blinks and tokens appear.
         if self.streaming {
-            ctx.request_repaint();
+            ctx.request_repaint_after(Duration::from_millis(100));
         }
 
-        ctx.set_visuals(egui::Visuals::dark());
-
-        self.render_top_bar(ctx);
-        self.render_input_bar(ctx);
-        self.render_messages(ctx);
+        self.render_ui(ctx);
     }
 }

@@ -1,8 +1,20 @@
-use anyhow::Result;
+use anyhow::{Result, bail};
 
-use crate::llm::ConversationTurn;
+use crate::llm::{ConversationTurn, LanguageModel, Provider};
 use crate::providers::execution::{ModelRequest, stream_model_request};
 use crate::routing::{ModelRouter, Router};
+
+/// Model details safe for GUI and other public callers to display.
+#[derive(Clone, Debug, Eq, PartialEq)]
+pub struct ModelInfo {
+    pub id: String,
+    pub provider: String,
+    pub name: String,
+    pub label: String,
+    pub strengths: Vec<String>,
+    pub enabled: bool,
+    pub disabled_reason: Option<String>,
+}
 
 /// Public entry point for sending a prompt through the full routing + provider
 /// pipeline without going through the TUI.
@@ -14,11 +26,83 @@ pub async fn stream_prompt(
     context: Vec<ConversationTurn>,
     on_token: impl FnMut(String) + Send,
 ) -> Result<(String, String)> {
-    let runtime = crate::runtime::Runtime::load();
-    let router = ModelRouter::new(runtime.config().models());
+    let router = router_from_runtime();
     let decision = router.route(&prompt);
     let model_name = decision.model.name.clone();
     let request = ModelRequest::new(decision.model, context, prompt);
     let full_text = stream_model_request(&request, on_token).await?;
     Ok((full_text, model_name))
+}
+
+/// Stream a prompt through one explicitly selected enabled model.
+pub async fn stream_prompt_with_model(
+    model_id: String,
+    prompt: String,
+    context: Vec<ConversationTurn>,
+    on_token: impl FnMut(String) + Send,
+) -> Result<(String, String)> {
+    let router = router_from_runtime();
+    let model = router
+        .models()
+        .iter()
+        .find(|model| model_id_for(model) == model_id)
+        .cloned()
+        .ok_or_else(|| anyhow::anyhow!("unknown model selection: {model_id}"))?;
+
+    if !model.enabled {
+        let reason = model
+            .disabled_reason
+            .clone()
+            .unwrap_or_else(|| "model is disabled".to_string());
+        bail!("{} is unavailable: {reason}", model.display_label());
+    }
+
+    let model_name = model.name.clone();
+    let request = ModelRequest::new(model, context, prompt);
+    let full_text = stream_model_request(&request, on_token).await?;
+    Ok((full_text, model_name))
+}
+
+/// Return every model known to the runtime router.
+pub fn available_models() -> Vec<ModelInfo> {
+    router_from_runtime()
+        .models()
+        .iter()
+        .map(model_info_for)
+        .collect()
+}
+
+/// Explain the model the router would pick without calling a provider.
+pub fn route_prompt(prompt: &str) -> String {
+    router_from_runtime().explain(prompt).format()
+}
+
+fn router_from_runtime() -> ModelRouter {
+    let runtime = crate::runtime::Runtime::load();
+    ModelRouter::new(runtime.config().models())
+}
+
+fn model_info_for(model: &LanguageModel) -> ModelInfo {
+    ModelInfo {
+        id: model_id_for(model),
+        provider: model.provider.label().to_string(),
+        name: model.name.clone(),
+        label: model.display_label(),
+        strengths: model.strengths.clone(),
+        enabled: model.enabled,
+        disabled_reason: model.disabled_reason.clone(),
+    }
+}
+
+fn model_id_for(model: &LanguageModel) -> String {
+    format!("{}:{}", provider_id(&model.provider), model.name)
+}
+
+fn provider_id(provider: &Provider) -> &'static str {
+    match provider {
+        Provider::Ollama => "ollama",
+        Provider::Anthropic => "anthropic",
+        Provider::OpenAi => "openai",
+        Provider::Xai => "xai",
+    }
 }

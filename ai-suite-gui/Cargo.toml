@@ -7,6 +7,10 @@ edition = "2024"
 name = "ai-suite-gui"
 path = "src/main.rs"
 
+[[bin]]
+name = "ai-gui"
+path = "src/bin/ai-gui.rs"
+
 [dependencies]
 ai-suite = { path = "../ai-suite" }
 eframe   = "0.28"

@@ -137,6 +137,7 @@ name = "ai-suite-cli"
 version = "0.1.0"
 dependencies = [
  "ai-suite",
+ "ai-suite-gui",
  "anyhow",
  "tokio",
 ]

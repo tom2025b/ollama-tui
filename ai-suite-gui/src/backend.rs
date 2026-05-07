@@ -1,4 +1,4 @@
-use ai_suite::{stream_prompt, ConversationTurn};
+use ai_suite::{ConversationTurn, stream_prompt, stream_prompt_with_model};
 use egui::Context;
 use tokio::{runtime::Handle, sync::mpsc};
 
@@ -8,7 +8,10 @@ pub enum BackendEvent {
     Token(String),
     /// Response complete. full_text is the assembled response; model_name is
     /// the router's choice (e.g. "claude-sonnet-4-6").
-    Done { full_text: String, model_name: String },
+    Done {
+        full_text: String,
+        model_name: String,
+    },
     /// A network or API error. The string is human-readable.
     Error(String),
 }
@@ -19,6 +22,7 @@ pub enum BackendEvent {
 pub fn spawn_request(
     prompt: String,
     context: Vec<ConversationTurn>,
+    model_id: Option<String>,
     tx: mpsc::UnboundedSender<BackendEvent>,
     ctx: Context,
     handle: Handle,
@@ -29,15 +33,22 @@ pub fn spawn_request(
         let tx_tok = tx.clone();
         let ctx_tok = ctx.clone();
 
-        let result = stream_prompt(prompt, context, move |token| {
+        let on_token = move |token| {
             let _ = tx_tok.send(BackendEvent::Token(token));
             ctx_tok.request_repaint();
-        })
-        .await;
+        };
+
+        let result = match model_id {
+            Some(model_id) => stream_prompt_with_model(model_id, prompt, context, on_token).await,
+            None => stream_prompt(prompt, context, on_token).await,
+        };
 
         match result {
             Ok((full_text, model_name)) => {
-                let _ = tx.send(BackendEvent::Done { full_text, model_name });
+                let _ = tx.send(BackendEvent::Done {
+                    full_text,
+                    model_name,
+                });
             }
             Err(e) => {
                 let _ = tx.send(BackendEvent::Error(e.to_string()));

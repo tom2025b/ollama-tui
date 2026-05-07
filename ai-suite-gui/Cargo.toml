@@ -1,0 +1,15 @@
+[package]
+name    = "ai-suite-gui"
+version = "0.1.0"
+edition = "2024"
+
+[[bin]]
+name = "ai-suite-gui"
+path = "src/main.rs"
+
+[dependencies]
+ai-suite = { path = "../ai-suite" }
+eframe   = "0.28"
+egui     = "0.28"
+tokio    = { version = "1", features = ["rt-multi-thread"] }
+anyhow   = "1"

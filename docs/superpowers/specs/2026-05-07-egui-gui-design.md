@@ -46,7 +46,7 @@ pub async fn stream_prompt(
     prompt: String,
     context: Vec<ConversationTurn>,
     on_token: impl FnMut(String),
-) -> anyhow::Result<String>
+) -> anyhow::Result<(String, String)>  // (full_response_text, model_name)
 ```
 
 Internals:
@@ -89,7 +89,7 @@ ai-suite-gui/
 
 ### `main.rs`
 
-Builds a `tokio` runtime explicitly (eframe takes over the main thread, so tokio runs on a background thread pool), then calls `eframe::run_native`.
+Builds a `tokio` runtime explicitly using `tokio::runtime::Builder::new_multi_thread().build()` and stores it in an `Arc` that is passed into `App`. eframe takes over the main thread so tokio cannot use `#[tokio::main]` — the runtime is kept alive for the full duration of the eframe window and dropped after `run_native` returns. `backend::spawn_request` receives a `tokio::runtime::Handle` (via `runtime.handle().clone()`) and calls `handle.spawn(...)` to fire off backend tasks.
 
 ### `app.rs` — App state
 

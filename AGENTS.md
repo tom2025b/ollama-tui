@@ -1,3 +1,21 @@
+## Current Priority Task - GUI Overhaul
+
+The `ai-suite-gui` crate currently contains only a very basic, bare-bones egui chat interface. It functions but looks poor and lacks most of the features from the excellent terminal TUI.
+
+**Your mission:**
+Upgrade `ai-suite-gui` into a high-quality, modern desktop GUI that matches or exceeds the quality and functionality of the existing terminal TUI (`ai-suite-cli`).
+
+Key requirements:
+- Significantly improve visual design and user experience
+- Support slash commands (`/model`, `/clear`, `/help`, etc.)
+- Add model selection and current model display
+- Nice message bubbles, proper scrolling, streaming feedback
+- Clean, professional, modern dark theme
+- Maintain the existing streaming functionality through the `stream_prompt` API
+
+Do not accept the current minimal GUI as "good enough". Make it something users would actually prefer over the terminal version.
+
+Focus on this task until it is complete.
 # ai-suite Agent Guide
 
 This codebase is being deliberately evolved into a clean, professional,

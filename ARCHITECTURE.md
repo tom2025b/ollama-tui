@@ -256,3 +256,4 @@ If you want to understand the codebase quickly, read these files in order:
 6. `src/routing/selection.rs` — how a model is chosen.
 7. `src/providers/execution.rs` — how a model is actually called.
 8. `src/prompt_rules/prompt.rs` — how rules are layered onto a prompt.
+# Test comment for GitHub Codex AI reviewer

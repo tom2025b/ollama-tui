@@ -6,6 +6,7 @@ Snapshot date: 2026-05-12
 
 The centralized error-handling audit is currently complete through Module 13.
 No work has started yet on Modules 14 and later.
+The audit is paused here due to token limit.
 
 Completed:
 
@@ -383,3 +384,4 @@ The next module in the approved rollout remains:
 - The core `ai-suite/src` production surfaces no longer rely on `anyhow`;
   `errors.rs` still intentionally understands `anyhow::Error` chains so older
   callers and tests remain friendly while the wider workspace catches up.
+- Audit paused due to token limit after Modules 12-13.

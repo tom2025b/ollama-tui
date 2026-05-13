@@ -6,8 +6,8 @@ modules are completed.
 
 ## Status
 
-- Audit modules completed so far: `0`, `1`, `2`, `3`, `4`, `5`, `6`, `7`, `8`, `9`, `10`, `11`
-- New module work is currently paused after Module 11
+- Audit modules completed so far: `0`, `1`, `2`, `3`, `4`, `5`, `6`, `7`, `8`, `9`, `10`, `11`, `12`, `13`
+- New module work is currently paused after Module 13
 - Current changed-file inventory matches the working tree
 
 ## Current Changed Files And Notes
@@ -184,6 +184,28 @@ rendering, default-command selection, and clap parsing so the already-migrated
 bootstrap/CLI boundary now has focused regression coverage without changing
 runtime behavior.
 
+### Module 12: `ai-suite-cli/*`
+
+- `ai-suite-cli/src/bin/ai.rs`
+- `ai-suite-cli/src/lib.rs`
+- `ai-suite-cli/src/main.rs`
+
+Notes:
+Converted the CLI wrapper crate and binary entrypoints onto `ai_suite::Result`
+and mapped Tokio runtime-construction failure onto the centralized
+`Error::Terminal` variant.
+
+### Module 13: `ai-suite-gui/*` entry surfaces
+
+- `ai-suite-gui/src/bin/ai-gui.rs`
+- `ai-suite-gui/src/lib.rs`
+- `ai-suite-gui/src/main.rs`
+
+Notes:
+Converted the GUI wrapper crate and binary entrypoints onto `ai_suite::Result`
+and mapped GUI Tokio runtime-construction plus `eframe` launch failures onto
+the centralized `Error::Terminal` variant.
+
 ## Verification Completed So Far
 
 - `cargo test -p ai-suite test_stream_error_propagates -- --nocapture`
@@ -202,4 +224,5 @@ runtime behavior.
 - `cargo test -p ai-suite stream:: --lib`
 - `cargo test -p ai-suite cli:: --lib`
 - `cargo test -p ai-suite bootstrap:: --lib`
+- `cargo check -p ai-suite-cli -p ai-suite-gui`
 - `cargo fmt --all`

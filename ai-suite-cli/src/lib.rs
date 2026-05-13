@@ -1,6 +1,6 @@
 use std::{env, ffi::OsString};
 
-use anyhow::Result;
+use ai_suite::{Error, Result};
 
 pub fn run_from_env() -> Result<()> {
     let args = env::args_os().collect::<Vec<_>>();
@@ -12,7 +12,7 @@ pub fn run_from_env() -> Result<()> {
     let rt = tokio::runtime::Builder::new_multi_thread()
         .enable_all()
         .build()
-        .map_err(|error| anyhow::anyhow!("failed to build tokio runtime: {error}"))?;
+        .map_err(|error| Error::terminal(format!("failed to build CLI tokio runtime: {error}")))?;
     rt.block_on(ai_suite::run())
 }
 

@@ -4,8 +4,8 @@ Snapshot date: 2026-05-12
 
 ## Current Scope
 
-The centralized error-handling audit is currently complete through Module 11.
-No work has started yet on Modules 12 and later.
+The centralized error-handling audit is currently complete through Module 13.
+No work has started yet on Modules 14 and later.
 
 Completed:
 
@@ -21,10 +21,12 @@ Completed:
 - Module 9: stream/bootstrap/CLI/subcommand execution surfaces
 - Module 10: `ai-suite/src/stream.rs` follow-up hardening
 - Module 11: bootstrap + CLI core follow-up hardening
+- Module 12: `ai-suite-cli/*`
+- Module 13: `ai-suite-gui/*` entry surfaces
 
 Paused:
 
-- Module 12 and beyond
+- Module 14 and beyond
 
 ## What Changed
 
@@ -247,6 +249,32 @@ Changed files:
 - `ai-suite/src/bootstrap.rs`
 - `ai-suite/src/cli/mod.rs`
 
+### Module 12
+
+- Converted the CLI wrapper crate and binary entrypoints from `anyhow` onto
+  `ai_suite::Result`.
+- Mapped Tokio runtime-construction failure to centralized
+  `ai_suite::Error::Terminal`.
+
+Changed files:
+
+- `ai-suite-cli/src/bin/ai.rs`
+- `ai-suite-cli/src/lib.rs`
+- `ai-suite-cli/src/main.rs`
+
+### Module 13
+
+- Converted the GUI wrapper crate and binary entrypoints from `anyhow` onto
+  `ai_suite::Result`.
+- Mapped GUI Tokio runtime-construction and `eframe` launch failures to
+  centralized `ai_suite::Error::Terminal`.
+
+Changed files:
+
+- `ai-suite-gui/src/bin/ai-gui.rs`
+- `ai-suite-gui/src/lib.rs`
+- `ai-suite-gui/src/main.rs`
+
 ## Verification Run So Far
 
 - `cargo test -p ai-suite test_stream_error_propagates -- --nocapture`
@@ -265,6 +293,7 @@ Changed files:
 - `cargo test -p ai-suite stream:: --lib`
 - `cargo test -p ai-suite cli:: --lib`
 - `cargo test -p ai-suite bootstrap:: --lib`
+- `cargo check -p ai-suite-cli -p ai-suite-gui`
 - `cargo fmt --all`
 
 All of the above completed successfully.
@@ -304,6 +333,12 @@ All of the above completed successfully.
 - `ai-suite/src/stream.rs`
 - `ai-suite/src/bootstrap.rs`
 - `ai-suite/src/cli/mod.rs`
+- `ai-suite-cli/src/bin/ai.rs`
+- `ai-suite-cli/src/lib.rs`
+- `ai-suite-cli/src/main.rs`
+- `ai-suite-gui/src/bin/ai-gui.rs`
+- `ai-suite-gui/src/lib.rs`
+- `ai-suite-gui/src/main.rs`
 - `ai-suite/src/providers/anthropic/http.rs`
 - `ai-suite/src/providers/anthropic/mod.rs`
 - `ai-suite/src/providers/anthropic/stream_parser.rs`
@@ -338,7 +373,7 @@ All of the above completed successfully.
 
 The next module in the approved rollout remains:
 
-- Module 12+: remaining workspace crates and follow-up cleanup, if needed
+- Module 14+: remaining workspace crates and follow-up cleanup, if needed
 
 ## Notes
 

@@ -8,11 +8,13 @@ mod ui;
 
 use app::App;
 
-pub fn run() -> anyhow::Result<()> {
+pub fn run() -> ai_suite::Result<()> {
     let rt = tokio::runtime::Builder::new_multi_thread()
         .enable_all()
         .build()
-        .map_err(|error| anyhow::anyhow!("failed to build tokio runtime: {error}"))?;
+        .map_err(|error| {
+            ai_suite::Error::terminal(format!("failed to build GUI tokio runtime: {error}"))
+        })?;
     let handle = rt.handle().clone();
     let _rt = rt;
 
@@ -29,5 +31,5 @@ pub fn run() -> anyhow::Result<()> {
         native_options,
         Box::new(move |_cc| Ok(Box::new(App::new(handle)) as Box<dyn eframe::App>)),
     )
-    .map_err(|error| anyhow::anyhow!("failed to run GUI: {error}"))
+    .map_err(|error| ai_suite::Error::terminal(format!("failed to run GUI: {error}")))
 }

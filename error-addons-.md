@@ -6,8 +6,8 @@ modules are completed.
 
 ## Status
 
-- Audit modules completed so far: `0`, `1`, `2`, `3`, `4`, `5`, `6`, `7`, `8`, `9`
-- New module work is currently paused after Module 9
+- Audit modules completed so far: `0`, `1`, `2`, `3`, `4`, `5`, `6`, `7`, `8`, `9`, `10`, `11`
+- New module work is currently paused after Module 11
 - Current changed-file inventory matches the working tree
 
 ## Current Changed Files And Notes
@@ -163,6 +163,27 @@ and command-execution layer, converted explicit model-selection failures to
 typed validation errors, and mapped terminal I/O boundaries onto centralized
 error variants without changing user-facing startup or slash-command behavior.
 
+### Module 10: `stream.rs` follow-up hardening
+
+- `ai-suite/src/stream.rs`
+
+Notes:
+Extracted pure helper functions for explicit model selection and route
+formatting so the typed validation and routing-error behavior can be exercised
+directly in unit tests, and switched public route-error formatting to use
+`friendly_error` for consistency with the rest of the surface.
+
+### Module 11: bootstrap + CLI core follow-up hardening
+
+- `ai-suite/src/bootstrap.rs`
+- `ai-suite/src/cli/mod.rs`
+
+Notes:
+Added small pure helpers around startup warning rendering, fatal error
+rendering, default-command selection, and clap parsing so the already-migrated
+bootstrap/CLI boundary now has focused regression coverage without changing
+runtime behavior.
+
 ## Verification Completed So Far
 
 - `cargo test -p ai-suite test_stream_error_propagates -- --nocapture`
@@ -178,4 +199,7 @@ error variants without changing user-facing startup or slash-command behavior.
 - `cargo check -p ai-suite`
 - `cargo test -p ai-suite providers:: --lib`
 - `cargo test -p ai-suite subcommands:: --lib`
+- `cargo test -p ai-suite stream:: --lib`
+- `cargo test -p ai-suite cli:: --lib`
+- `cargo test -p ai-suite bootstrap:: --lib`
 - `cargo fmt --all`

@@ -43,23 +43,7 @@ pub async fn stream_prompt_with_model(
     on_token: impl FnMut(String) + Send,
 ) -> Result<(String, String)> {
     let router = router_from_runtime();
-    let model = router
-        .models()
-        .iter()
-        .find(|model| model_id_for(model) == model_id)
-        .cloned()
-        .ok_or_else(|| Error::validation(format!("unknown model selection: {model_id}")))?;
-
-    if !model.enabled {
-        let reason = model
-            .disabled_reason
-            .clone()
-            .unwrap_or_else(|| "model is disabled".to_string());
-        return Err(Error::validation(format!(
-            "{} is unavailable: {reason}",
-            model.display_label()
-        )));
-    }
+    let model = select_model_by_id(router.models(), &model_id)?;
 
     let model_name = model.name.clone();
     let request = ModelRequest::new(model, context, prompt);
@@ -78,10 +62,7 @@ pub fn available_models() -> Vec<ModelInfo> {
 
 /// Explain the model the router would pick without calling a provider.
 pub fn route_prompt(prompt: &str) -> String {
-    match router_from_runtime().explain(prompt) {
-        Ok(explanation) => explanation.format(),
-        Err(error) => format!("Routing failed: {error}"),
-    }
+    format_route_prompt(router_from_runtime().explain(prompt))
 }
 
 fn router_from_runtime() -> ModelRouter {
@@ -111,5 +92,105 @@ fn provider_id(provider: &Provider) -> &'static str {
         Provider::Anthropic => "anthropic",
         Provider::OpenAi => "openai",
         Provider::Xai => "xai",
+    }
+}
+
+fn select_model_by_id(models: &[LanguageModel], model_id: &str) -> Result<LanguageModel> {
+    let model = models
+        .iter()
+        .find(|model| model_id_for(model) == model_id)
+        .cloned()
+        .ok_or_else(|| Error::validation(format!("unknown model selection: {model_id}")))?;
+
+    if !model.enabled {
+        let reason = model
+            .disabled_reason
+            .clone()
+            .unwrap_or_else(|| "model is disabled".to_string());
+        return Err(Error::validation(format!(
+            "{} is unavailable: {reason}",
+            model.display_label()
+        )));
+    }
+
+    Ok(model)
+}
+
+fn format_route_prompt(explanation: Result<crate::routing::RouteExplanation>) -> String {
+    match explanation {
+        Ok(explanation) => explanation.format(),
+        Err(error) => format!("Routing failed: {}", crate::friendly_error(&error)),
+    }
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+    use crate::routing::RouteExplanation;
+
+    #[test]
+    fn select_model_by_id_rejects_unknown_selection() {
+        let models = vec![LanguageModel::ollama("llama3", &["test"])];
+
+        let error = select_model_by_id(&models, "ollama:missing")
+            .expect_err("unknown model id should fail");
+
+        match error {
+            Error::Validation { message } => {
+                assert!(
+                    message.contains("unknown model selection"),
+                    "got: {message}"
+                );
+                assert!(message.contains("ollama:missing"), "got: {message}");
+            }
+            other => panic!("expected Validation error, got {other:?}"),
+        }
+    }
+
+    #[test]
+    fn select_model_by_id_rejects_disabled_model() {
+        let models = vec![LanguageModel::openai(
+            "gpt-4o",
+            &["test"],
+            false,
+            Some("missing key".to_string()),
+        )];
+
+        let error =
+            select_model_by_id(&models, "openai:gpt-4o").expect_err("disabled model should fail");
+
+        match error {
+            Error::Validation { message } => {
+                assert!(message.contains("OpenAI gpt-4o"), "got: {message}");
+                assert!(message.contains("missing key"), "got: {message}");
+            }
+            other => panic!("expected Validation error, got {other:?}"),
+        }
+    }
+
+    #[test]
+    fn format_route_prompt_uses_friendly_error_for_failures() {
+        let rendered = format_route_prompt(Err(Error::routing("router invariant broke")));
+        assert!(rendered.contains("Routing failed:"), "got: {rendered}");
+        assert!(
+            rendered.contains("router invariant broke"),
+            "got: {rendered}"
+        );
+    }
+
+    #[test]
+    fn format_route_prompt_renders_route_explanation() {
+        let explanation = RouteExplanation {
+            decision: crate::llm::RouteDecision {
+                model: LanguageModel::ollama("llama3", &["test"]),
+                reason: "picked local".to_string(),
+            },
+            matched_rule: "default",
+            features: vec![("needs_privacy", false), ("is_simple", true)],
+        };
+
+        let rendered = format_route_prompt(Ok(explanation));
+        assert!(rendered.contains("Routing trace"), "got: {rendered}");
+        assert!(rendered.contains("llama3"), "got: {rendered}");
     }
 }

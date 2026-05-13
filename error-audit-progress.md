@@ -4,8 +4,8 @@ Snapshot date: 2026-05-12
 
 ## Current Scope
 
-The centralized error-handling audit is currently complete through Module 9.
-No work has started yet on Modules 10 and later.
+The centralized error-handling audit is currently complete through Module 11.
+No work has started yet on Modules 12 and later.
 
 Completed:
 
@@ -19,10 +19,12 @@ Completed:
 - Module 7: `ai-suite/src/routing/*`
 - Module 8: `ai-suite/src/providers/*`
 - Module 9: stream/bootstrap/CLI/subcommand execution surfaces
+- Module 10: `ai-suite/src/stream.rs` follow-up hardening
+- Module 11: bootstrap + CLI core follow-up hardening
 
 Paused:
 
-- Module 10 and beyond
+- Module 12 and beyond
 
 ## What Changed
 
@@ -217,6 +219,34 @@ Changed files:
 - `ai-suite/src/subcommands/tui/run.rs`
 - `ai-suite/src/subcommands/tui/terminal.rs`
 
+### Module 10
+
+- Extracted pure `stream.rs` helpers for explicit model selection and route
+  explanation formatting so the typed validation and routing-error behavior is
+  unit-testable without live runtime/provider execution.
+- Switched `/route`-style public formatting to pass typed routing failures
+  through `friendly_error`, keeping public output consistent with the rest of
+  the error surface.
+- Added focused regression coverage for unknown model IDs, disabled model
+  selection, successful route formatting, and typed routing-failure rendering.
+
+Changed files:
+
+- `ai-suite/src/stream.rs`
+
+### Module 11
+
+- Extracted tiny pure helpers in `bootstrap.rs` and `cli/mod.rs` so startup
+  warning rendering, fatal error rendering, default-command selection, and clap
+  parsing are directly testable.
+- Preserved command-dispatch behavior while adding focused regression coverage
+  for omitted subcommands and user-facing bootstrap formatting.
+
+Changed files:
+
+- `ai-suite/src/bootstrap.rs`
+- `ai-suite/src/cli/mod.rs`
+
 ## Verification Run So Far
 
 - `cargo test -p ai-suite test_stream_error_propagates -- --nocapture`
@@ -232,6 +262,9 @@ Changed files:
 - `cargo check -p ai-suite`
 - `cargo test -p ai-suite providers:: --lib`
 - `cargo test -p ai-suite subcommands:: --lib`
+- `cargo test -p ai-suite stream:: --lib`
+- `cargo test -p ai-suite cli:: --lib`
+- `cargo test -p ai-suite bootstrap:: --lib`
 - `cargo fmt --all`
 
 All of the above completed successfully.
@@ -305,7 +338,7 @@ All of the above completed successfully.
 
 The next module in the approved rollout remains:
 
-- Module 10+: remaining workspace crates and follow-up cleanup, if needed
+- Module 12+: remaining workspace crates and follow-up cleanup, if needed
 
 ## Notes
 

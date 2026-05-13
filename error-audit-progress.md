@@ -4,8 +4,18 @@ Snapshot date: 2026-05-13
 
 ## Current Scope
 
-The centralized error-handling audit is currently complete through Module 15.
-No additional production workspace follow-up is currently queued.
+The centralized error-handling audit is complete through Module 17.
+No additional workspace follow-up is queued for this audit.
+
+## Final Status
+
+- Audit complete.
+- Workspace code now uses the centralized typed `ai_suite::Error`/`Result`
+  surface instead of `anyhow`-based production flows.
+- The obsolete scratch tracker was removed; this file is now the canonical
+  audit record.
+- Final closure verification passed with `cargo check --workspace` and
+  `cargo test --workspace` on 2026-05-13.
 
 Completed:
 
@@ -25,6 +35,8 @@ Completed:
 - Module 13: `ai-suite-gui/*` entry surfaces
 - Module 14: GUI internal error-flow cleanup and wrapper-crate dependency cleanup
 - Module 15: final core-crate `anyhow` removal and stale reference cleanup
+- Module 16: final workspace cleanup
+- Module 17: full verification + final documentation/status update
 
 ## What Changed
 
@@ -320,6 +332,28 @@ Changed files:
 - `docs/superpowers/plans/2026-05-07-egui-gui.md`
 - `docs/superpowers/specs/2026-05-07-egui-gui-design.md`
 
+### Module 16
+
+- Removed the obsolete `error-addons-.md` scratch tracker now that
+  `error-audit-progress.md` is the canonical audit record.
+- Tightened the final audit notes so the remaining references to `anyhow`
+  are clearly historical documentation rather than live workspace code.
+
+Changed files:
+
+- `error-audit-progress.md`
+- `error-addons-.md` (deleted)
+
+### Module 17
+
+- Ran the final full-workspace verification pass requested for audit closure.
+- Updated this document to record the final status, final verification, and
+  zero pending follow-up for the centralized error-handling audit.
+
+Changed files:
+
+- `error-audit-progress.md`
+
 ## Verification Run So Far
 
 - `cargo test -p ai-suite test_stream_error_propagates -- --nocapture`
@@ -345,10 +379,12 @@ Changed files:
 - `cargo clippy --workspace --all-targets -- -D warnings`
 - `cargo test --workspace`
 - `cargo check --workspace`
+- `cargo check --workspace`
+- `cargo test --workspace`
 
 All of the above completed successfully.
 
-## Current Working-Tree File Inventory
+## Audit Change Inventory
 
 - `Cargo.lock`
 - `ai-suite/Cargo.toml`
@@ -426,19 +462,18 @@ All of the above completed successfully.
 - `ai-suite/src/subcommands/tui/app/prompt.rs`
 - `ai-suite/src/subcommands/tui/app/state.rs`
 - `ai-suite/src/subcommands/tui/slash_commands/handlers/route.rs`
-- `error-addons-.md`
 - `error-audit-progress.md`
 
 ## Next Planned Modules
 
-No additional modules are currently queued for the centralized error audit.
-Module 15 removed the last runtime `anyhow` dependency from workspace code.
+No additional modules are planned. The centralized error audit is complete.
 
 ## Notes
 
 - The runtime startup behavior remains intentionally non-fatal for malformed
   config files; those cases now route through typed internal errors and emerge
   as user-facing warnings.
-- Historical audit/design notes may still mention `anyhow` where they describe
-  earlier migration steps, but the workspace code now routes through the
-  centralized typed error surface.
+- Remaining `anyhow` mentions are historical references inside this audit log
+  describing earlier migration stages; they are not live workspace code.
+- Final workspace verification for audit closure is the pair requested by the
+  user: `cargo check --workspace` and `cargo test --workspace`.

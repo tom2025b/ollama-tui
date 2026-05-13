@@ -101,6 +101,32 @@ impl App {
         self.ui.models_picker_index = (current + 1) % total;
     }
 
+    /// Pin a model by its provider-specific name (e.g. `qwen2.5:7b`).
+    ///
+    /// Returns the display label on success, or a human-readable error
+    /// listing installed names on failure.
+    pub fn pin_model_by_name(&mut self, name: &str) -> Result<String, String> {
+        let models = self.routing.router.models();
+        let Some(chosen) = models.iter().find(|model| model.name == name) else {
+            let installed = models
+                .iter()
+                .map(|model| model.name.as_str())
+                .collect::<Vec<_>>()
+                .join(", ");
+            return Err(format!("No model named `{name}`. Available: {installed}."));
+        };
+
+        if !chosen.enabled {
+            let reason = chosen.disabled_reason.as_deref().unwrap_or("not available");
+            return Err(format!("Model `{name}` is not available: {reason}."));
+        }
+
+        let chosen = chosen.clone();
+        let label = chosen.display_label();
+        self.routing.pinned_model = Some(chosen);
+        Ok(label)
+    }
+
     /// Apply the highlighted picker row.
     pub fn accept_model_selection(&mut self) {
         let total = self.models_picker_total();

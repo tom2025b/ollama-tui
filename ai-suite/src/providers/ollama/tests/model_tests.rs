@@ -12,6 +12,8 @@ fn model_name_match_accepts_latest_tag() {
 fn available_model_check_accepts_latest_tag() {
     let installed_models = vec![OllamaModel {
         name: "llama3:latest".to_string(),
+        size: 0,
+        modified_at: String::new(),
     }];
 
     ensure_model_name_is_available(&installed_models, "llama3")
@@ -22,6 +24,8 @@ fn available_model_check_accepts_latest_tag() {
 fn available_model_check_explains_missing_model() {
     let installed_models = vec![OllamaModel {
         name: "mistral:latest".to_string(),
+        size: 0,
+        modified_at: String::new(),
     }];
 
     let error = ensure_model_name_is_available(&installed_models, "llama3")

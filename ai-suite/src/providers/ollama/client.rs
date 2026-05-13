@@ -60,7 +60,7 @@ impl OllamaClient {
     }
 
     /// Ask Ollama which models are installed locally.
-    async fn list_models(&self) -> Result<Vec<OllamaModel>> {
+    pub async fn list_models(&self) -> Result<Vec<OllamaModel>> {
         let url = self.api_url("/api/tags");
         let response = self
             .http

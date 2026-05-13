@@ -45,6 +45,7 @@ impl App {
         };
 
         self.session.input.clear();
+        self.session.input_cursor = 0;
         self.session.waiting_for_model = true;
         self.session.active_model_name = Some(model_name.clone());
         self.session.activity_tick = 0;
@@ -76,6 +77,7 @@ impl App {
         };
 
         self.session.input.clear();
+        self.session.input_cursor = 0;
         match self.commands.registry.resolve(&command) {
             Some(execute) => execute(self, &command),
             None => {

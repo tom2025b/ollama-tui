@@ -4,13 +4,22 @@ use crate::subcommands::tui::slash_commands::{CommandHelp, CommandSuggestion};
 impl App {
     /// Add one typed character to the input buffer.
     pub fn push_input_char(&mut self, character: char) {
-        self.session.input.push(character);
+        let cursor = self.input_cursor();
+        self.session.input.insert(cursor, character);
+        self.session.input_cursor = cursor + character.len_utf8();
         self.commands.reset_suggestions();
     }
 
     /// Remove the most recent typed character.
     pub fn backspace(&mut self) {
-        self.session.input.pop();
+        let cursor = self.input_cursor();
+        if cursor == 0 {
+            return;
+        }
+
+        let previous = previous_cursor_position(&self.session.input, cursor);
+        self.session.input.drain(previous..cursor);
+        self.session.input_cursor = previous;
         // Editing the input revives the popup if it was previously dismissed,
         // and resets the highlight so the user does not land on a stale row.
         self.commands.reset_suggestions();
@@ -19,8 +28,25 @@ impl App {
     /// Clear the current input without submitting it.
     pub fn clear_input(&mut self) {
         self.session.input.clear();
+        self.session.input_cursor = 0;
         self.ui.status = "Input cleared.".to_string();
         self.commands.reset_suggestions();
+    }
+
+    /// Move the prompt cursor one character to the left.
+    pub fn move_input_cursor_left(&mut self) {
+        self.session.input_cursor =
+            previous_cursor_position(&self.session.input, self.input_cursor());
+    }
+
+    /// Move the prompt cursor one character to the right.
+    pub fn move_input_cursor_right(&mut self) {
+        self.session.input_cursor = next_cursor_position(&self.session.input, self.input_cursor());
+    }
+
+    /// Current prompt cursor, clamped to a valid UTF-8 boundary.
+    pub(crate) fn input_cursor(&self) -> usize {
+        clamp_cursor(&self.session.input, self.session.input_cursor)
     }
 
     /// Slash-command suggestions that match the current input.
@@ -83,6 +109,7 @@ impl App {
         self.session.input.clear();
         self.session.input.push_str(selected);
         self.session.input.push(' ');
+        self.session.input_cursor = self.session.input.len();
         self.commands.suggestion_index = 0;
         self.commands.dismiss_suggestions();
         true
@@ -92,4 +119,28 @@ impl App {
     pub fn dismiss_suggestions(&mut self) {
         self.commands.dismiss_suggestions();
     }
+}
+
+fn clamp_cursor(input: &str, cursor: usize) -> usize {
+    let mut cursor = cursor.min(input.len());
+    while cursor > 0 && !input.is_char_boundary(cursor) {
+        cursor -= 1;
+    }
+    cursor
+}
+
+fn previous_cursor_position(input: &str, cursor: usize) -> usize {
+    let cursor = clamp_cursor(input, cursor);
+    input[..cursor]
+        .char_indices()
+        .next_back()
+        .map_or(0, |(index, _)| index)
+}
+
+fn next_cursor_position(input: &str, cursor: usize) -> usize {
+    let cursor = clamp_cursor(input, cursor);
+    input[cursor..]
+        .chars()
+        .next()
+        .map_or(cursor, |character| cursor + character.len_utf8())
 }

@@ -6,6 +6,7 @@ mod stream;
 mod types;
 
 pub use client::OllamaClient;
+pub use models::OllamaModel;
 
 use crate::{Result, llm::ConversationTurn};
 

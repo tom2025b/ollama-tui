@@ -11,9 +11,15 @@ pub(super) struct TagsResponse {
 
 /// One model entry returned by `/api/tags`.
 #[derive(Debug, Deserialize)]
-pub(super) struct OllamaModel {
+pub struct OllamaModel {
     /// Full Ollama model name, commonly something like `llama3:latest`.
-    pub(super) name: String,
+    pub name: String,
+    /// On-disk size in bytes.
+    #[serde(default)]
+    pub size: u64,
+    /// ISO-8601 timestamp of the last modification, as returned by Ollama.
+    #[serde(default, rename = "modified_at")]
+    pub modified_at: String,
 }
 
 /// Decide whether an installed Ollama model satisfies a requested model name.

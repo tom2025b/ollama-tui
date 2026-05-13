@@ -78,6 +78,7 @@ impl RoutingState {
 pub(crate) struct SessionState {
     /// Text currently being typed in the prompt box.
     pub(crate) input: String,
+    pub(crate) input_cursor: usize,
 
     /// Visible conversation entries, including in-progress model responses and
     /// local command output.
@@ -94,6 +95,7 @@ impl SessionState {
     pub(super) fn new() -> Self {
         Self {
             input: String::new(),
+            input_cursor: 0,
             history: Vec::new(),
             waiting_for_model: false,
             active_model_name: None,

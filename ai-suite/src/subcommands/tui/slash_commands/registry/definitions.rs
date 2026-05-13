@@ -51,6 +51,28 @@ const CORE_COMMANDS: &[CommandDefinition] = &[
         execute: handlers::backends::backends_command,
     },
     CommandDefinition {
+        display_name: "/ollama",
+        hint: "List local Ollama models",
+        detail: "List models installed in the local Ollama server with size and last-modified time. \
+                 Usage: /ollama  or  /ollama list.",
+        names: &[CommandName {
+            name: "/ollama",
+            visible: true,
+        }],
+        execute: handlers::ollama::ollama_command,
+    },
+    CommandDefinition {
+        display_name: "/use",
+        hint: "Pin a model by name",
+        detail: "Pin a specific model (local or cloud) by its exact name. \
+                 Example: /use qwen2.5:7b",
+        names: &[CommandName {
+            name: "/use",
+            visible: true,
+        }],
+        execute: handlers::ollama::use_command,
+    },
+    CommandDefinition {
         display_name: "/route",
         hint: "Trace router decision",
         detail: "Run the router on a prompt and show which provider it would pick. \

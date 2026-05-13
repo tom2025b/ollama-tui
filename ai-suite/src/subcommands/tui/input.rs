@@ -79,6 +79,8 @@ pub fn handle_key_event(
         KeyCode::Char('c') if key_event.modifiers.contains(KeyModifiers::CONTROL) => app.quit(),
         KeyCode::Esc => app.quit(),
         KeyCode::Backspace => app.backspace(),
+        KeyCode::Left => app.move_input_cursor_left(),
+        KeyCode::Right => app.move_input_cursor_right(),
         KeyCode::Enter => {
             if let Some(request) = app.submit_prompt() {
                 spawn_model_request(request, model_event_tx);

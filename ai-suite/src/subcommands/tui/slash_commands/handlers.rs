@@ -8,6 +8,7 @@ pub mod explain;
 pub mod fix;
 pub mod history;
 pub mod history_output;
+pub mod ollama;
 pub mod review;
 pub mod route;
 pub mod rules;

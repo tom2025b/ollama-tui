@@ -1,14 +1,15 @@
 use std::{
-    fs, io,
+    fs,
     path::{Path, PathBuf},
 };
 
 use super::{
     content::{RuleSection, active_section},
-    storage::{RulesFile, default_rules_template, read_optional_rules},
+    storage::{RulesFile, default_rules_template, read_optional_rules, warning_for_load_error},
     target::RulesTarget,
 };
 use crate::runtime::RuntimePaths;
+use crate::{Error, Result};
 
 /// Loaded rules and the paths where they live.
 #[derive(Clone, Debug)]
@@ -24,15 +25,19 @@ pub struct RulesState {
 
 impl RulesState {
     /// Load global rules and project rules from the nearest project root.
+    ///
+    /// Rules-file read failures remain non-fatal so the app can start and
+    /// prompt routing can continue; those failures are preserved as warnings
+    /// for `/rules show`.
     pub fn load(paths: &RuntimePaths) -> Self {
         let global_path = paths.global_rules_path().to_path_buf();
         let project_root = paths.project_root().map(ToOwned::to_owned);
         let project_rules_path = paths.project_rules_path().to_path_buf();
 
         let mut load_warnings = Vec::new();
-        let global_rules = read_optional_rules(&global_path, &mut load_warnings);
+        let global_rules = load_optional_rules(&global_path, &mut load_warnings);
         let project_rules = if project_root.is_some() {
-            read_optional_rules(&project_rules_path, &mut load_warnings)
+            load_optional_rules(&project_rules_path, &mut load_warnings)
         } else {
             None
         };
@@ -65,17 +70,21 @@ impl RulesState {
         self.project_root.as_deref()
     }
 
-    pub fn prepare_edit(&self, target: RulesTarget) -> io::Result<PathBuf> {
+    /// Prepare a rules file for editing by creating parent directories and a
+    /// starter template when the file does not exist yet.
+    pub fn prepare_edit(&self, target: RulesTarget) -> Result<PathBuf> {
         let path = match target {
             RulesTarget::Global => self.global_path.clone(),
             RulesTarget::Project => self.project_edit_path(),
         };
 
         if let Some(parent) = path.parent() {
-            fs::create_dir_all(parent)?;
+            fs::create_dir_all(parent)
+                .map_err(|source| Error::io("create rules parent directory", parent, source))?;
         }
         if !path.exists() {
-            fs::write(&path, default_rules_template(target))?;
+            fs::write(&path, default_rules_template(target))
+                .map_err(|source| Error::io("write default rules file", &path, source))?;
         }
 
         Ok(path)
@@ -105,5 +114,15 @@ impl RulesState {
         }
 
         sections
+    }
+}
+
+fn load_optional_rules(path: &Path, warnings: &mut Vec<String>) -> Option<RulesFile> {
+    match read_optional_rules(path) {
+        Ok(rules) => rules,
+        Err(error) => {
+            warnings.push(warning_for_load_error(path, &error));
+            None
+        }
     }
 }

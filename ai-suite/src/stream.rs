@@ -1,8 +1,9 @@
-use anyhow::{Result, bail};
-
-use crate::llm::{ConversationTurn, LanguageModel, Provider};
 use crate::providers::execution::{ModelRequest, stream_model_request};
 use crate::routing::{ModelRouter, Router};
+use crate::{
+    Error, Result,
+    llm::{ConversationTurn, LanguageModel, Provider},
+};
 
 /// Model details safe for GUI and other public callers to display.
 #[derive(Clone, Debug, Eq, PartialEq)]
@@ -27,7 +28,7 @@ pub async fn stream_prompt(
     on_token: impl FnMut(String) + Send,
 ) -> Result<(String, String)> {
     let router = router_from_runtime();
-    let decision = router.route(&prompt);
+    let decision = router.route(&prompt)?;
     let model_name = decision.model.name.clone();
     let request = ModelRequest::new(decision.model, context, prompt);
     let full_text = stream_model_request(&request, on_token).await?;
@@ -47,14 +48,17 @@ pub async fn stream_prompt_with_model(
         .iter()
         .find(|model| model_id_for(model) == model_id)
         .cloned()
-        .ok_or_else(|| anyhow::anyhow!("unknown model selection: {model_id}"))?;
+        .ok_or_else(|| Error::validation(format!("unknown model selection: {model_id}")))?;
 
     if !model.enabled {
         let reason = model
             .disabled_reason
             .clone()
             .unwrap_or_else(|| "model is disabled".to_string());
-        bail!("{} is unavailable: {reason}", model.display_label());
+        return Err(Error::validation(format!(
+            "{} is unavailable: {reason}",
+            model.display_label()
+        )));
     }
 
     let model_name = model.name.clone();
@@ -74,7 +78,10 @@ pub fn available_models() -> Vec<ModelInfo> {
 
 /// Explain the model the router would pick without calling a provider.
 pub fn route_prompt(prompt: &str) -> String {
-    router_from_runtime().explain(prompt).format()
+    match router_from_runtime().explain(prompt) {
+        Ok(explanation) => explanation.format(),
+        Err(error) => format!("Routing failed: {error}"),
+    }
 }
 
 fn router_from_runtime() -> ModelRouter {

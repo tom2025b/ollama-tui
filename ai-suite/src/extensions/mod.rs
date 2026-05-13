@@ -1,12 +1,14 @@
-use crate::tools::registry::{ToolRegistry, ToolRegistryError};
+//! Public extension registration for provider-neutral tools.
+
 use crate::tools::{
     execution::{ToolInvocation, ToolOutput},
     spec::{Tool, ToolDefinition},
 };
+use crate::{Result, tools::registry::ToolRegistry};
 
 /// Extension point for registering provider-neutral capabilities.
 pub trait ExtensionPack: Send + Sync {
-    fn register_tools(&self, tools: &mut ToolRegistry) -> Result<(), ToolRegistryError>;
+    fn register_tools(&self, tools: &mut ToolRegistry) -> Result<()>;
 }
 
 /// Registry of extension packs enabled for this build.
@@ -33,7 +35,7 @@ impl ExtensionRegistry {
         self.packs.push(Box::new(pack));
     }
 
-    pub fn register_tools(&self, tools: &mut ToolRegistry) -> Result<(), ToolRegistryError> {
+    pub fn register_tools(&self, tools: &mut ToolRegistry) -> Result<()> {
         for pack in &self.packs {
             pack.register_tools(tools)?;
         }
@@ -55,7 +57,7 @@ impl ExtensionRegistry {
 struct PublicExtensionPack;
 
 impl ExtensionPack for PublicExtensionPack {
-    fn register_tools(&self, tools: &mut ToolRegistry) -> Result<(), ToolRegistryError> {
+    fn register_tools(&self, tools: &mut ToolRegistry) -> Result<()> {
         tools.register(PublicProfileTool)
     }
 }
@@ -71,21 +73,19 @@ impl Tool for PublicProfileTool {
         )
     }
 
-    fn execute(&self, _invocation: ToolInvocation) -> anyhow::Result<ToolOutput> {
+    fn execute(&self, _invocation: ToolInvocation) -> Result<ToolOutput> {
         Ok(ToolOutput::text("public ai-suite extension profile"))
     }
 }
 
 #[cfg(test)]
 mod tests {
-    use anyhow::Result;
-
     use super::*;
 
     struct StaticExtensionPack;
 
     impl ExtensionPack for StaticExtensionPack {
-        fn register_tools(&self, tools: &mut ToolRegistry) -> Result<(), ToolRegistryError> {
+        fn register_tools(&self, tools: &mut ToolRegistry) -> Result<()> {
             tools.register(StaticTool)
         }
     }
@@ -115,9 +115,9 @@ mod tests {
         let registry = ExtensionRegistry::public();
         let mut tools = ToolRegistry::new();
 
-        registry
-            .register_tools(&mut tools)
-            .expect("public extensions should register");
+        if let Err(error) = registry.register_tools(&mut tools) {
+            panic!("public extensions should register: {error}");
+        }
 
         assert_eq!(registry.len(), 1);
         assert!(tools.contains("public_profile"));
@@ -127,9 +127,9 @@ mod tests {
     fn public_pack_registers_public_profile_tool() {
         let mut tools = ToolRegistry::new();
 
-        PublicExtensionPack
-            .register_tools(&mut tools)
-            .expect("public extension pack should register");
+        if let Err(error) = PublicExtensionPack.register_tools(&mut tools) {
+            panic!("public extension pack should register: {error}");
+        }
 
         assert!(tools.contains("public_profile"));
     }
@@ -140,9 +140,9 @@ mod tests {
         let mut tools = ToolRegistry::new();
         registry.register(StaticExtensionPack);
 
-        registry
-            .register_tools(&mut tools)
-            .expect("extension pack should register tools");
+        if let Err(error) = registry.register_tools(&mut tools) {
+            panic!("extension pack should register tools: {error}");
+        }
 
         assert!(tools.contains("static"));
     }

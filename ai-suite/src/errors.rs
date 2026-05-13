@@ -1,15 +1,344 @@
-//! Translate `anyhow::Error` chains into short, actionable messages for users.
+//! Centralized error definitions and user-facing error rendering.
 //!
-//! Internal code keeps using `anyhow::Result` and rich `.context()` chains. At
-//! the display boundary (TUI failure events, top-level CLI exit), call
-//! [`friendly_error`] to convert the chain into one human-readable line.
-//!
-//! Set `AI_SUITE_DEBUG=1` (or toggle `/debug` in the TUI) to print the full
-//! technical chain instead.
+//! The long-term contract for this crate is that public fallible APIs return
+//! [`Result<T>`](Result) with the root [`Error`] enum defined here. The rest of
+//! the codebase is still being migrated away from `anyhow`, so
+//! [`friendly_error`] intentionally accepts any standard error and can still
+//! render existing `anyhow::Error` chains at the application boundary.
 
-use std::sync::atomic::{AtomicBool, Ordering};
+use std::{
+    any::Any,
+    env::VarError,
+    error::Error as StdError,
+    path::PathBuf,
+    str::Utf8Error,
+    sync::atomic::{AtomicBool, Ordering},
+};
+
+use reqwest::StatusCode;
+use thiserror::Error as ThisError;
 
 static DEBUG_MODE: AtomicBool = AtomicBool::new(false);
+
+/// Canonical result type for fallible public APIs in this crate.
+pub type Result<T> = std::result::Result<T, Error>;
+
+/// Centralized error type for all production code paths in `ai-suite`.
+#[derive(Debug, ThisError)]
+pub enum Error {
+    /// Filesystem I/O failed for a path-aware operation.
+    #[error("I/O error while {operation} at {}: {source}", path.display())]
+    Io {
+        /// Short description of the operation being attempted.
+        operation: &'static str,
+        /// Path involved in the failing I/O operation.
+        path: PathBuf,
+        /// Underlying operating-system error.
+        #[source]
+        source: std::io::Error,
+    },
+
+    /// Filesystem I/O failed for an operation without a single stable path.
+    #[error("I/O error while {operation}: {source}")]
+    IoOperation {
+        /// Short description of the operation being attempted.
+        operation: &'static str,
+        /// Underlying operating-system error.
+        #[source]
+        source: std::io::Error,
+    },
+
+    /// A required environment variable was missing or invalid.
+    #[error("environment variable `{name}` is not set or invalid: {source}")]
+    EnvVar {
+        /// Environment variable name.
+        name: &'static str,
+        /// Source error returned by the standard library.
+        #[source]
+        source: VarError,
+    },
+
+    /// A cloud provider requires an API key that is not configured.
+    #[error("{provider} backend requires the `{env_var}` environment variable")]
+    MissingApiKey {
+        /// Human-readable provider name.
+        provider: &'static str,
+        /// Environment variable that must be exported.
+        env_var: &'static str,
+    },
+
+    /// Building the HTTP client for a provider failed.
+    #[error("failed to build {provider} HTTP client: {source}")]
+    HttpClientBuild {
+        /// Human-readable provider name.
+        provider: &'static str,
+        /// Source error returned by `reqwest`.
+        #[source]
+        source: reqwest::Error,
+    },
+
+    /// Sending an HTTP request to a provider failed before a valid response.
+    #[error("failed to contact {provider}: {source}")]
+    HttpRequest {
+        /// Human-readable provider name.
+        provider: &'static str,
+        /// Source error returned by `reqwest`.
+        #[source]
+        source: reqwest::Error,
+    },
+
+    /// A provider returned a non-success HTTP status.
+    #[error("{provider} returned HTTP {status}. Response body: {body}")]
+    HttpStatus {
+        /// Human-readable provider name.
+        provider: &'static str,
+        /// HTTP status code returned by the backend.
+        status: StatusCode,
+        /// Provider response body, when available.
+        body: String,
+    },
+
+    /// JSON parsing or serialization failed with call-site context.
+    #[error("failed to process JSON for {context}: {source}")]
+    Json {
+        /// Short description of the JSON boundary.
+        context: &'static str,
+        /// Source error returned by `serde_json`.
+        #[source]
+        source: serde_json::Error,
+    },
+
+    /// TOML parsing failed with call-site context.
+    #[error("failed to parse TOML for {context}: {source}")]
+    TomlDeserialize {
+        /// Short description of the TOML boundary.
+        context: &'static str,
+        /// Source error returned by `toml`.
+        #[source]
+        source: toml::de::Error,
+    },
+
+    /// TOML serialization failed with call-site context.
+    #[error("failed to serialize TOML for {context}: {source}")]
+    TomlSerialize {
+        /// Short description of the TOML boundary.
+        context: &'static str,
+        /// Source error returned by `toml`.
+        #[source]
+        source: toml::ser::Error,
+    },
+
+    /// UTF-8 decoding failed, usually while consuming provider streams.
+    #[error("invalid UTF-8 while {context}: {source}")]
+    Utf8 {
+        /// Short description of the decoding boundary.
+        context: &'static str,
+        /// Source error returned by `std::str`.
+        #[source]
+        source: Utf8Error,
+    },
+
+    /// A provider returned malformed or semantically invalid data.
+    #[error("{provider} returned an invalid response: {message}")]
+    ProviderResponse {
+        /// Human-readable provider name.
+        provider: &'static str,
+        /// Additional response-specific context.
+        message: String,
+    },
+
+    /// A provider stream failed after the request was accepted.
+    #[error("{provider} streaming error: {message}")]
+    Streaming {
+        /// Human-readable provider name.
+        provider: &'static str,
+        /// Additional streaming-specific context.
+        message: String,
+    },
+
+    /// Runtime configuration is invalid or incomplete.
+    #[error("configuration error: {message}")]
+    Configuration {
+        /// Human-readable explanation of the configuration problem.
+        message: String,
+    },
+
+    /// Model selection or routing failed.
+    #[error("routing error: {message}")]
+    Routing {
+        /// Human-readable explanation of the routing problem.
+        message: String,
+    },
+
+    /// Tool execution failed.
+    #[error("tool error: {message}")]
+    Tool {
+        /// Human-readable explanation of the tool failure.
+        message: String,
+    },
+
+    /// Extension integration failed.
+    #[error("extension error: {message}")]
+    Extension {
+        /// Human-readable explanation of the extension failure.
+        message: String,
+    },
+
+    /// User input or internal arguments failed validation.
+    #[error("validation error: {message}")]
+    Validation {
+        /// Human-readable explanation of the validation failure.
+        message: String,
+    },
+
+    /// Terminal or UI state management failed.
+    #[error("terminal error: {message}")]
+    Terminal {
+        /// Human-readable explanation of the terminal failure.
+        message: String,
+    },
+
+    /// An internal invariant was violated.
+    #[error("internal invariant violated: {message}")]
+    Invariant {
+        /// Human-readable explanation of the invariant failure.
+        message: String,
+    },
+}
+
+impl Error {
+    /// Build a path-aware I/O error.
+    pub fn io(operation: &'static str, path: impl Into<PathBuf>, source: std::io::Error) -> Self {
+        Self::Io {
+            operation,
+            path: path.into(),
+            source,
+        }
+    }
+
+    /// Build an I/O error for operations without a single stable path.
+    pub fn io_operation(operation: &'static str, source: std::io::Error) -> Self {
+        Self::IoOperation { operation, source }
+    }
+
+    /// Build an environment-variable error with the variable name attached.
+    pub fn env_var(name: &'static str, source: VarError) -> Self {
+        Self::EnvVar { name, source }
+    }
+
+    /// Build a missing-provider-key error.
+    pub fn missing_api_key(provider: &'static str, env_var: &'static str) -> Self {
+        Self::MissingApiKey { provider, env_var }
+    }
+
+    /// Build an HTTP-client construction error for a provider.
+    pub fn http_client_build(provider: &'static str, source: reqwest::Error) -> Self {
+        Self::HttpClientBuild { provider, source }
+    }
+
+    /// Build an HTTP transport error for a provider.
+    pub fn http_request(provider: &'static str, source: reqwest::Error) -> Self {
+        Self::HttpRequest { provider, source }
+    }
+
+    /// Build a non-success HTTP status error for a provider.
+    pub fn http_status(
+        provider: &'static str,
+        status: StatusCode,
+        body: impl Into<String>,
+    ) -> Self {
+        Self::HttpStatus {
+            provider,
+            status,
+            body: body.into(),
+        }
+    }
+
+    /// Build a JSON processing error with call-site context.
+    pub fn json(context: &'static str, source: serde_json::Error) -> Self {
+        Self::Json { context, source }
+    }
+
+    /// Build a TOML parse error with call-site context.
+    pub fn toml_deserialize(context: &'static str, source: toml::de::Error) -> Self {
+        Self::TomlDeserialize { context, source }
+    }
+
+    /// Build a TOML serialization error with call-site context.
+    pub fn toml_serialize(context: &'static str, source: toml::ser::Error) -> Self {
+        Self::TomlSerialize { context, source }
+    }
+
+    /// Build a UTF-8 decoding error with call-site context.
+    pub fn utf8(context: &'static str, source: Utf8Error) -> Self {
+        Self::Utf8 { context, source }
+    }
+
+    /// Build an invalid-provider-response error.
+    pub fn provider_response(provider: &'static str, message: impl Into<String>) -> Self {
+        Self::ProviderResponse {
+            provider,
+            message: message.into(),
+        }
+    }
+
+    /// Build a provider-streaming error.
+    pub fn streaming(provider: &'static str, message: impl Into<String>) -> Self {
+        Self::Streaming {
+            provider,
+            message: message.into(),
+        }
+    }
+
+    /// Build a configuration error.
+    pub fn configuration(message: impl Into<String>) -> Self {
+        Self::Configuration {
+            message: message.into(),
+        }
+    }
+
+    /// Build a routing error.
+    pub fn routing(message: impl Into<String>) -> Self {
+        Self::Routing {
+            message: message.into(),
+        }
+    }
+
+    /// Build a tool-execution error.
+    pub fn tool(message: impl Into<String>) -> Self {
+        Self::Tool {
+            message: message.into(),
+        }
+    }
+
+    /// Build an extension error.
+    pub fn extension(message: impl Into<String>) -> Self {
+        Self::Extension {
+            message: message.into(),
+        }
+    }
+
+    /// Build a validation error.
+    pub fn validation(message: impl Into<String>) -> Self {
+        Self::Validation {
+            message: message.into(),
+        }
+    }
+
+    /// Build a terminal/UI error.
+    pub fn terminal(message: impl Into<String>) -> Self {
+        Self::Terminal {
+            message: message.into(),
+        }
+    }
+
+    /// Build an internal-invariant error.
+    pub fn invariant(message: impl Into<String>) -> Self {
+        Self::Invariant {
+            message: message.into(),
+        }
+    }
+}
 
 /// Initialize debug mode from the `AI_SUITE_DEBUG` env var. Call once at
 /// startup. Anything truthy (`1`, `true`, `yes`, on any case) enables debug
@@ -39,29 +368,62 @@ pub fn debug_mode_enabled() -> bool {
 
 /// Render an error chain for a user. In debug mode, returns the full chain via
 /// `{:#}`. Otherwise, returns a single short sentence with a recovery hint.
-pub fn friendly_error(error: &anyhow::Error) -> String {
+pub fn friendly_error<E>(error: &E) -> String
+where
+    E: Any + std::fmt::Display,
+{
     if debug_mode_enabled() {
         return format!("{error:#}");
     }
 
-    let chain_text = chain_text(error);
+    let chain_text = if let Some(anyhow_error) = (error as &dyn Any).downcast_ref::<anyhow::Error>()
+    {
+        chain_text_anyhow(anyhow_error)
+    } else if let Some(root_error) = (error as &dyn Any).downcast_ref::<Error>() {
+        chain_text_std(root_error)
+    } else {
+        error.to_string().to_lowercase()
+    };
+
     classify(&chain_text).unwrap_or_else(|| short_summary(error))
 }
 
 /// Concatenate every `.context()` layer into one lowercase string for matching.
-fn chain_text(error: &anyhow::Error) -> String {
+fn chain_text_std(error: &(dyn StdError + 'static)) -> String {
     let mut buffer = String::new();
+    let mut current = Some(error);
+
+    while let Some(cause) = current {
+        if !buffer.is_empty() {
+            buffer.push_str(" :: ");
+        }
+        buffer.push_str(&cause.to_string());
+        current = cause.source();
+    }
+
+    buffer.to_lowercase()
+}
+
+/// Concatenate every `anyhow` chain layer into one lowercase string for
+/// matching.
+fn chain_text_anyhow(error: &anyhow::Error) -> String {
+    let mut buffer = String::new();
+
     for cause in error.chain() {
         if !buffer.is_empty() {
             buffer.push_str(" :: ");
         }
         buffer.push_str(&cause.to_string());
     }
+
     buffer.to_lowercase()
 }
 
 /// Pull just the top-level message when no specific pattern matches.
-fn short_summary(error: &anyhow::Error) -> String {
+fn short_summary<E>(error: &E) -> String
+where
+    E: std::fmt::Display + ?Sized,
+{
     let head = error.to_string();
     let head = head.lines().next().unwrap_or("").trim();
     if head.is_empty() {
@@ -222,7 +584,7 @@ mod tests {
     }
 
     fn classify_of(error: &anyhow::Error) -> Option<String> {
-        classify(&chain_text(error))
+        classify(&chain_text_anyhow(error))
     }
 
     #[test]
@@ -290,5 +652,21 @@ mod tests {
         let out = short_summary(&e);
         assert!(out.contains("the disk fell off"), "got: {out}");
         assert!(out.contains("AI_SUITE_DEBUG"), "got: {out}");
+    }
+
+    #[test]
+    fn typed_missing_api_key_is_rendered() {
+        let e = Error::missing_api_key("OpenAI", "OPENAI_API_KEY");
+        let out = friendly_error(&e);
+        assert!(out.contains("OPENAI_API_KEY"), "got: {out}");
+        assert!(out.contains("GPT"), "got: {out}");
+    }
+
+    #[test]
+    fn typed_http_status_is_classified() {
+        let e = Error::http_status("OpenAI", StatusCode::UNAUTHORIZED, "bad key");
+        let out = friendly_error(&e);
+        assert!(out.contains("OpenAI"), "got: {out}");
+        assert!(out.contains("rejected"), "got: {out}");
     }
 }

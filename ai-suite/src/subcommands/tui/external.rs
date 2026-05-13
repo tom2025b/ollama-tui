@@ -1,7 +1,6 @@
 use std::process::Command;
 
-use anyhow::Result;
-
+use crate::Result;
 use crate::subcommands::tui::{
     app::App,
     slash_commands::{ExternalAction, handlers},
@@ -34,7 +33,7 @@ fn run_editor(
     terminal: &mut AppTerminal,
     app: &App,
     path: &std::path::Path,
-) -> Result<Result<(), String>> {
+) -> Result<std::result::Result<(), String>> {
     let editor = app.editor_command().to_os_string();
     let editor_name = editor.to_string_lossy().into_owned();
 

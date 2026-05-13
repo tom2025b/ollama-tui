@@ -1,15 +1,16 @@
+//! Built-in public tools shipped with the open-source `ai-suite` build.
+
 use std::time::{SystemTime, UNIX_EPOCH};
 
-use anyhow::{Context, Result};
-
-use super::registry::{ToolRegistry, ToolRegistryError};
 use super::{
     execution::{ToolInvocation, ToolOutput},
+    registry::ToolRegistry,
     spec::{Tool, ToolDefinition},
 };
+use crate::{Error, Result};
 
 /// Register built-in provider-neutral tools.
-pub fn register(registry: &mut ToolRegistry) -> Result<(), ToolRegistryError> {
+pub fn register(registry: &mut ToolRegistry) -> Result<()> {
     registry.register(UtcTimestampTool)?;
     registry.register(BuildInfoTool)?;
     Ok(())
@@ -29,7 +30,7 @@ impl Tool for UtcTimestampTool {
     fn execute(&self, _invocation: ToolInvocation) -> Result<ToolOutput> {
         let timestamp = SystemTime::now()
             .duration_since(UNIX_EPOCH)
-            .context("system clock is before Unix epoch")?
+            .map_err(|source| Error::tool(format!("system clock is before Unix epoch: {source}")))?
             .as_secs();
 
         Ok(ToolOutput::text(timestamp.to_string()))
@@ -63,7 +64,9 @@ mod tests {
     fn builtin_registration_adds_public_tools() {
         let mut registry = ToolRegistry::new();
 
-        register(&mut registry).expect("built-in registration should succeed");
+        if let Err(error) = register(&mut registry) {
+            panic!("built-in registration should succeed: {error}");
+        }
 
         assert!(registry.contains("utc_timestamp"));
         assert!(registry.contains("build_info"));
@@ -71,9 +74,11 @@ mod tests {
 
     #[test]
     fn utc_timestamp_returns_digits() {
-        let output = UtcTimestampTool
-            .execute(ToolInvocation::new("utc_timestamp", Value::Null))
-            .expect("timestamp should be available");
+        let output =
+            match UtcTimestampTool.execute(ToolInvocation::new("utc_timestamp", Value::Null)) {
+                Ok(output) => output,
+                Err(error) => panic!("timestamp should be available: {error}"),
+            };
 
         assert!(
             output
@@ -85,9 +90,10 @@ mod tests {
 
     #[test]
     fn build_info_uses_public_package_name() {
-        let output = BuildInfoTool
-            .execute(ToolInvocation::new("build_info", Value::Null))
-            .expect("build info should be available");
+        let output = match BuildInfoTool.execute(ToolInvocation::new("build_info", Value::Null)) {
+            Ok(output) => output,
+            Err(error) => panic!("build info should be available: {error}"),
+        };
 
         assert!(output.content().contains("ai-suite"));
     }

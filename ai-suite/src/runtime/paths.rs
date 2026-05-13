@@ -1,3 +1,6 @@
+//! Runtime path discovery for config, rules, history, and editor selection,
+//! including non-fatal fallbacks when process state is incomplete.
+
 use std::ffi::{OsStr, OsString};
 use std::path::{Path, PathBuf};
 
@@ -21,6 +24,15 @@ const PROJECT_MARKERS: &[&str] = &[
     "Makefile",
 ];
 
+/// Resolved runtime paths plus any non-fatal fallback warnings collected while
+/// choosing defaults.
+#[derive(Debug)]
+pub(super) struct LoadedRuntimePaths {
+    pub(super) paths: RuntimePaths,
+    pub(super) warnings: Vec<String>,
+}
+
+/// Runtime-derived paths and command defaults shared across the application.
 #[derive(Clone, Debug)]
 pub(crate) struct RuntimePaths {
     home_dir: PathBuf,
@@ -34,26 +46,55 @@ pub(crate) struct RuntimePaths {
 }
 
 impl RuntimePaths {
-    pub(super) fn from_environment<E>(environment: &E) -> Self
+    /// Resolve runtime paths from the current process environment.
+    pub(super) fn from_environment<E>(environment: &E) -> LoadedRuntimePaths
     where
         E: RuntimeEnvironment + ?Sized,
     {
-        let home_dir = environment
-            .var_os("HOME")
-            .map(PathBuf::from)
-            .unwrap_or_else(|| PathBuf::from("."));
-        let current_dir = environment
-            .current_dir()
-            .unwrap_or_else(|| home_dir.clone());
+        let mut warnings = Vec::new();
+        let current_dir_result = environment.current_dir();
+        let current_dir_fallback = current_dir_result.as_ref().ok().cloned();
+        let home_dir = match environment.var_os("HOME").filter(|value| !value.is_empty()) {
+            Some(path) => PathBuf::from(path),
+            None => {
+                let fallback = current_dir_fallback
+                    .clone()
+                    .unwrap_or_else(|| PathBuf::from("."));
+                warnings.push(format!(
+                    "HOME is not set. Using {} as the runtime home directory for config, rules, and history files.",
+                    fallback.display()
+                ));
+                fallback.clone()
+            }
+        };
+        let current_dir = match current_dir_result {
+            Ok(path) => path,
+            Err(error) => {
+                warnings.push(format!(
+                    "Could not resolve the current working directory: {error}. Falling back to {}.",
+                    home_dir.display()
+                ));
+                home_dir.clone()
+            }
+        };
         let project_root = find_project_root(&current_dir);
         let editor = environment
             .var_os("VISUAL")
-            .or_else(|| environment.var_os("EDITOR"))
+            .filter(|value| !value.is_empty())
+            .or_else(|| {
+                environment
+                    .var_os("EDITOR")
+                    .filter(|value| !value.is_empty())
+            })
             .unwrap_or_else(|| OsString::from("vi"));
 
-        Self::from_resolved_parts(home_dir, current_dir, project_root, editor)
+        LoadedRuntimePaths {
+            paths: Self::from_resolved_parts(home_dir, current_dir, project_root, editor),
+            warnings,
+        }
     }
 
+    /// Build test paths from already-resolved components.
     #[cfg(test)]
     pub(crate) fn from_parts(
         home_dir: PathBuf,
@@ -63,31 +104,38 @@ impl RuntimePaths {
         Self::from_resolved_parts(home_dir, current_dir, project_root, OsString::from("vi"))
     }
 
+    /// Project root inferred from common repository marker files.
     pub(crate) fn project_root(&self) -> Option<&Path> {
         self.project_root.as_deref()
     }
 
+    /// Global user rules file path.
     pub(crate) fn global_rules_path(&self) -> &Path {
         &self.global_rules_path
     }
 
+    /// Project-local rules file path.
     pub(crate) fn project_rules_path(&self) -> &Path {
         &self.project_rules_path
     }
 
+    /// History export path for a specific timestamp.
     pub(crate) fn history_report_path(&self, timestamp_seconds: u64) -> PathBuf {
         self.history_dir
             .join(format!("ai-suite-history-{timestamp_seconds}.txt"))
     }
 
+    /// Preferred editor command from `VISUAL`, `EDITOR`, or `vi`.
     pub(crate) fn editor(&self) -> &OsStr {
         &self.editor
     }
 
+    /// Config file path under the runtime home directory.
     pub(crate) fn config_file_path(&self) -> &Path {
         &self.config_file_path
     }
 
+    /// Expand `~` and relative paths against the runtime home/current dir.
     pub(crate) fn expand_user_path(&self, path: &str) -> PathBuf {
         if path == "~" {
             return self.home_dir.clone();
@@ -154,6 +202,47 @@ fn find_project_root(start: &Path) -> Option<PathBuf> {
 #[cfg(test)]
 mod tests {
     use super::*;
+    use crate::{Error, Result};
+    use std::ffi::OsString;
+
+    #[derive(Debug)]
+    enum CurrentDirOutcome {
+        Ok(PathBuf),
+        Err,
+    }
+
+    #[derive(Debug)]
+    struct TestEnvironment {
+        home: Option<OsString>,
+        visual: Option<OsString>,
+        editor: Option<OsString>,
+        current_dir: CurrentDirOutcome,
+    }
+
+    impl RuntimeEnvironment for TestEnvironment {
+        fn var(&self, key: &str) -> Option<String> {
+            self.var_os(key).and_then(|value| value.into_string().ok())
+        }
+
+        fn var_os(&self, key: &str) -> Option<OsString> {
+            match key {
+                "HOME" => self.home.clone(),
+                "VISUAL" => self.visual.clone(),
+                "EDITOR" => self.editor.clone(),
+                _ => None,
+            }
+        }
+
+        fn current_dir(&self) -> Result<PathBuf> {
+            match &self.current_dir {
+                CurrentDirOutcome::Ok(path) => Ok(path.clone()),
+                CurrentDirOutcome::Err => Err(Error::io_operation(
+                    "resolve current working directory",
+                    std::io::Error::new(std::io::ErrorKind::PermissionDenied, "denied"),
+                )),
+            }
+        }
+    }
 
     #[test]
     fn expands_home_relative_paths() {
@@ -181,5 +270,40 @@ mod tests {
             paths.expand_user_path("reports/session.txt"),
             PathBuf::from("/work/project/reports/session.txt")
         );
+    }
+
+    #[test]
+    fn missing_home_warns_and_falls_back_to_current_dir() {
+        let loaded = RuntimePaths::from_environment(&TestEnvironment {
+            home: None,
+            visual: None,
+            editor: None,
+            current_dir: CurrentDirOutcome::Ok(PathBuf::from("/work/project")),
+        });
+
+        assert_eq!(
+            loaded.paths.config_file_path(),
+            Path::new("/work/project/.config/ai-suite/config.toml")
+        );
+        assert_eq!(loaded.warnings.len(), 1);
+        assert!(loaded.warnings[0].contains("HOME is not set"));
+    }
+
+    #[test]
+    fn current_dir_failure_warns_and_falls_back_to_home() {
+        let loaded = RuntimePaths::from_environment(&TestEnvironment {
+            home: Some(OsString::from("/home/tester")),
+            visual: None,
+            editor: None,
+            current_dir: CurrentDirOutcome::Err,
+        });
+
+        assert_eq!(
+            loaded.paths.expand_user_path("logs"),
+            PathBuf::from("/home/tester/logs")
+        );
+        assert_eq!(loaded.warnings.len(), 1);
+        assert!(loaded.warnings[0].contains("current working directory"));
+        assert!(loaded.warnings[0].contains("/home/tester"));
     }
 }

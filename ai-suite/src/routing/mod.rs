@@ -3,7 +3,10 @@ mod explain;
 mod profile;
 mod selection;
 
-use crate::llm::{LanguageModel, Provider, RouteDecision};
+use crate::{
+    Error, Result,
+    llm::{LanguageModel, Provider, RouteDecision},
+};
 use profile::PromptProfile;
 
 pub use explain::RouteExplanation;
@@ -20,7 +23,7 @@ pub use catalog::PRIMARY_OLLAMA_MODEL;
 /// Future dynamic router will implement this same trait.
 pub trait Router {
     /// Route one prompt to one backend/model.
-    fn route(&self, prompt: &str) -> RouteDecision;
+    fn route(&self, prompt: &str) -> Result<RouteDecision>;
 
     /// Return every model the router knows about.
     ///
@@ -49,18 +52,16 @@ impl ModelRouter {
             .cloned()
     }
 
-    pub(super) fn primary_ollama_model(&self) -> LanguageModel {
-        // SAFETY: `ModelRouter::new` (see `routing/catalog.rs`) unconditionally pushes
-        // an Ollama model with `name == PRIMARY_OLLAMA_MODEL` as the first entry of
-        // `self.models`, and no public API mutates that vector. The `expect` below
-        // therefore relies on a construction-time invariant: if it ever fires, the
-        // router was built without the primary Ollama entry, which is a programmer
-        // error, not a runtime condition.
+    pub(super) fn primary_ollama_model(&self) -> Result<LanguageModel> {
         self.models
             .iter()
             .find(|model| model.provider == Provider::Ollama && model.name == PRIMARY_OLLAMA_MODEL)
-            .expect("router always contains primary Ollama model")
-            .clone()
+            .cloned()
+            .ok_or_else(|| {
+                Error::routing(format!(
+                    "router is missing required primary Ollama model `{PRIMARY_OLLAMA_MODEL}`"
+                ))
+            })
     }
 
     pub(super) fn fast_ollama_model_name(&self) -> String {
@@ -83,7 +84,7 @@ impl Router for ModelRouter {
     ///
     /// The rule order matters. More specific prompt classes are checked before
     /// broad general-purpose routing.
-    fn route(&self, prompt: &str) -> RouteDecision {
+    fn route(&self, prompt: &str) -> Result<RouteDecision> {
         self.route_with_rules(prompt)
     }
 

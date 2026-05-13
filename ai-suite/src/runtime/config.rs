@@ -1,3 +1,5 @@
+//! Resolved runtime configuration with source tracking and provider enablement.
+
 use crate::providers::{anthropic, openai, xai};
 
 use super::environment::RuntimeEnvironment;
@@ -57,6 +59,7 @@ impl<T> Setting<T> {
     }
 }
 
+/// Fully resolved runtime configuration used by routing and UI layers.
 #[derive(Clone, Debug)]
 pub(crate) struct RuntimeConfig {
     models: ModelRuntimeConfig,
@@ -83,6 +86,7 @@ impl RuntimeConfig {
     }
 }
 
+/// Conversation-memory limits resolved from config defaults and overrides.
 #[derive(Clone, Debug)]
 pub(crate) struct ContextLimits {
     context_turns: Setting<usize>,
@@ -114,6 +118,7 @@ impl ContextLimits {
     }
 }
 
+/// Resolved model-selection settings for each provider.
 #[derive(Clone, Debug)]
 pub(crate) struct ModelRuntimeConfig {
     fast_ollama_model: Setting<String>,
@@ -182,6 +187,7 @@ impl ModelRuntimeConfig {
     }
 }
 
+/// Runtime state for one cloud provider's model choice and availability.
 #[derive(Clone, Debug)]
 pub(crate) struct CloudProviderRuntimeConfig {
     model: Setting<String>,
@@ -231,7 +237,10 @@ fn env_value<E>(environment: &E, key: &'static str) -> Option<String>
 where
     E: RuntimeEnvironment + ?Sized,
 {
-    environment.var(key).filter(|value| !value.is_empty())
+    environment
+        .var(key)
+        .map(|value| value.trim().to_string())
+        .filter(|value| !value.is_empty())
 }
 
 /// Resolve a string setting with priority: env > file > default.
@@ -250,7 +259,7 @@ where
             source: ConfigSource::Env(env_key),
         };
     }
-    if let Some(value) = file_value.filter(|value| !value.is_empty()) {
+    if let Some(value) = file_value.map(str::trim).filter(|value| !value.is_empty()) {
         return Setting {
             value: value.to_string(),
             source: ConfigSource::File,

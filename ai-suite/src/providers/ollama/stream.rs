@@ -1,5 +1,6 @@
-use anyhow::{Context, Result};
 use serde::Deserialize;
+
+use crate::{Error, Result};
 
 /// Process complete newline-delimited JSON records currently in the stream buffer.
 pub(super) fn process_ollama_stream_buffer<F>(
@@ -51,8 +52,12 @@ where
         return Ok(());
     }
 
-    let chunk = serde_json::from_str::<ChatStreamChunk>(line)
-        .with_context(|| format!("Ollama returned an invalid stream line: {line}"))?;
+    let chunk = serde_json::from_str::<ChatStreamChunk>(line).map_err(|source| {
+        Error::provider_response(
+            "Ollama",
+            format!("invalid stream line: {source}. Line: {line}"),
+        )
+    })?;
 
     if let Some(message) = chunk.message
         && !message.content.is_empty()

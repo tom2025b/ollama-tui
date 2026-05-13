@@ -1,3 +1,5 @@
+//! Prompt-rules loading, reporting, and prompt wrapping.
+
 mod content;
 mod prompt;
 mod report;

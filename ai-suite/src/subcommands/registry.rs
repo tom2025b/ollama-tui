@@ -1,12 +1,12 @@
-use anyhow::{Context, Result, bail};
-
 use crate::runtime::Runtime;
+use crate::{Error, Result};
 
 use super::spec::{SubcommandFuture, SubcommandId, SubcommandRunner};
 
 #[derive(Clone, Copy)]
 struct BuiltInSubcommand {
     command: SubcommandId,
+    #[cfg_attr(not(test), allow(dead_code))]
     name: &'static str,
     runner: SubcommandRunner,
 }
@@ -25,9 +25,7 @@ impl BuiltInSubcommand {
     }
 
     async fn run(&self, runtime: &Runtime) -> Result<()> {
-        (self.runner)(runtime)
-            .await
-            .with_context(|| format!("{} subcommand failed", self.name))
+        (self.runner)(runtime).await
     }
 }
 
@@ -43,7 +41,9 @@ pub fn default_command() -> SubcommandId {
 
 pub async fn run(command: SubcommandId, runtime: &Runtime) -> Result<()> {
     let Some(subcommand) = find(command) else {
-        bail!("unregistered subcommand: {command:?}");
+        return Err(Error::invariant(format!(
+            "unregistered subcommand: {command:?}"
+        )));
     };
 
     subcommand.run(runtime).await

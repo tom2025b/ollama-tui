@@ -1,4 +1,4 @@
-use anyhow::{Result, bail};
+use crate::{Error, Result};
 
 /// Convert non-success HTTP responses into useful error messages.
 pub(super) async fn require_success(
@@ -16,5 +16,5 @@ pub(super) async fn require_success(
         .await
         .unwrap_or_else(|_| "response body could not be read".to_string());
 
-    bail!("{provider_name} returned HTTP {status}. Response body: {body}");
+    Err(Error::http_status(provider_name, status, body))
 }

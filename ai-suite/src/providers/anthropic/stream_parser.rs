@@ -1,5 +1,6 @@
-use anyhow::{Context, Result};
 use serde::Deserialize;
+
+use crate::{Error, Result};
 
 /// Process complete SSE lines currently in the stream buffer.
 pub(super) fn process_anthropic_stream_buffer<F>(
@@ -55,8 +56,12 @@ where
         return Ok(());
     }
 
-    let event = serde_json::from_str::<AnthropicStreamEvent>(data)
-        .with_context(|| format!("Anthropic returned an invalid stream event: {data}"))?;
+    let event = serde_json::from_str::<AnthropicStreamEvent>(data).map_err(|source| {
+        Error::provider_response(
+            "Anthropic",
+            format!("invalid stream event: {source}. Event: {data}"),
+        )
+    })?;
     if event.event_type != "content_block_delta" {
         return Ok(());
     }

@@ -10,7 +10,9 @@ fn privacy_prompt_stays_on_primary_ollama() {
         enabled_model(Provider::OpenAi, openai::DEFAULT_OPENAI_MODEL),
     ]);
 
-    let decision = router.route("private local only: summarize this personal note");
+    let decision = router
+        .route("private local only: summarize this personal note")
+        .unwrap();
 
     assert_eq!(decision.model.name, PRIMARY_OLLAMA_MODEL);
 }
@@ -25,7 +27,9 @@ fn sensitive_medical_prompt_stays_on_primary_ollama_even_when_cloud_is_enabled()
         enabled_model(Provider::Xai, xai::DEFAULT_XAI_MODEL),
     ]);
 
-    let decision = router.route("summarize these medical records and draft an email");
+    let decision = router
+        .route("summarize these medical records and draft an email")
+        .unwrap();
 
     assert_eq!(decision.model.provider, Provider::Ollama);
     assert_eq!(decision.model.name, PRIMARY_OLLAMA_MODEL);
@@ -40,7 +44,9 @@ fn sensitive_credential_prompt_stays_on_primary_ollama_even_for_code() {
         enabled_model(Provider::OpenAi, openai::DEFAULT_OPENAI_MODEL),
     ]);
 
-    let decision = router.route("debug this Python error; it includes my API key");
+    let decision = router
+        .route("debug this Python error; it includes my API key")
+        .unwrap();
 
     assert_eq!(decision.model.provider, Provider::Ollama);
     assert_eq!(decision.model.name, PRIMARY_OLLAMA_MODEL);

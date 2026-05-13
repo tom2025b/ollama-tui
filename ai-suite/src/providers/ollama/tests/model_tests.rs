@@ -1,6 +1,7 @@
 use super::super::models::{
     OllamaModel, ensure_model_name_is_available, model_name_matches_request,
 };
+use crate::Error;
 
 #[test]
 fn model_name_match_accepts_latest_tag() {
@@ -25,5 +26,12 @@ fn available_model_check_explains_missing_model() {
 
     let error = ensure_model_name_is_available(&installed_models, "llama3")
         .expect_err("missing llama3 should be explained");
-    assert!(error.to_string().contains("ollama pull llama3"));
+
+    match error {
+        Error::ProviderResponse { provider, message } => {
+            assert_eq!(provider, "Ollama");
+            assert!(message.contains("ollama pull llama3"), "got: {message}");
+        }
+        other => panic!("expected ProviderResponse error, got {other:?}"),
+    }
 }

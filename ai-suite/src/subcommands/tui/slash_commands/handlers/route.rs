@@ -16,9 +16,16 @@ pub fn route_command(app: &mut App, command: &ParsedCommand) {
         return;
     }
 
-    let report = app.explain_route(&prompt).format();
-    app.append_local_message(command.raw(), report);
-    app.ui.status = "Routed prompt (no model called).".to_string();
+    match app.explain_route(&prompt) {
+        Ok(report) => {
+            app.append_local_message(command.raw(), report.format());
+            app.ui.status = "Routed prompt (no model called).".to_string();
+        }
+        Err(error) => {
+            app.append_local_message(command.raw(), format!("Routing failed: {error}"));
+            app.ui.status = "Routing failed.".to_string();
+        }
+    }
 }
 
 /// Reconstruct the prompt text from the parsed command, stripping an optional

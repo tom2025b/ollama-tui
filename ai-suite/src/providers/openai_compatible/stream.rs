@@ -1,5 +1,6 @@
-use anyhow::{Context, Result};
 use serde::Deserialize;
+
+use crate::{Error, Result};
 
 /// Process complete SSE lines currently in the stream buffer.
 pub(super) fn process_chat_completion_stream_buffer<F>(
@@ -58,8 +59,12 @@ where
         return Ok(());
     }
 
-    let frame = serde_json::from_str::<ChatCompletionStreamResponse>(data)
-        .with_context(|| format!("{provider_name} returned an invalid stream frame: {data}"))?;
+    let frame = serde_json::from_str::<ChatCompletionStreamResponse>(data).map_err(|source| {
+        Error::provider_response(
+            provider_name,
+            format!("invalid stream frame: {source}. Frame: {data}"),
+        )
+    })?;
 
     for choice in frame.choices {
         if let Some(content) = choice.delta.content

@@ -1,4 +1,5 @@
 use super::{App, ChatMessage, PendingRequest};
+use crate::Result;
 use crate::llm::RouteDecision;
 use crate::routing::Router;
 use crate::subcommands::tui::slash_commands::{self, ParseResult, handlers};
@@ -27,7 +28,13 @@ impl App {
             return None;
         }
 
-        let route = self.route_prompt(&prompt);
+        let route = match self.route_prompt(&prompt) {
+            Ok(route) => route,
+            Err(error) => {
+                self.ui.status = format!("Could not route prompt: {error}");
+                return None;
+            }
+        };
         let context = self.conversation_context();
         let prompt_for_model = self.prompt_for_model(&prompt);
         let model_name = route.model.display_label();
@@ -79,15 +86,15 @@ impl App {
         true
     }
 
-    fn route_prompt(&self, prompt: &str) -> RouteDecision {
+    fn route_prompt(&self, prompt: &str) -> Result<RouteDecision> {
         if let Some(pinned) = &self.routing.pinned_model {
-            return RouteDecision {
+            return Ok(RouteDecision {
                 model: pinned.clone(),
                 reason: format!(
                     "Pinned to {} via /model picker. Router skipped.",
                     pinned.display_label()
                 ),
-            };
+            });
         }
 
         self.routing.router.route(prompt)

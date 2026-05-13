@@ -1,4 +1,4 @@
-use anyhow::Result;
+use crate::Result;
 
 use super::execution::{ToolInvocation, ToolOutput};
 
@@ -30,6 +30,7 @@ impl ToolDefinition {
 pub trait Tool: Send + Sync {
     fn definition(&self) -> ToolDefinition;
 
+    /// Execute the tool against structured input and return text output.
     fn execute(&self, invocation: ToolInvocation) -> Result<ToolOutput>;
 }
 

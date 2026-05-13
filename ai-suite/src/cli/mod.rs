@@ -1,6 +1,6 @@
-use anyhow::Result;
 use clap::Parser;
 
+use crate::Result;
 use crate::runtime::Runtime;
 use crate::subcommands::spec::SubcommandId;
 

@@ -1,3 +1,4 @@
+use crate::Result;
 use crate::llm::RouteDecision;
 
 use super::{ModelRouter, PromptProfile};
@@ -57,7 +58,7 @@ impl RouteExplanation {
 impl ModelRouter {
     /// Run the rule-based router and return both the decision and the
     /// classification that produced it.
-    pub fn explain(&self, prompt: &str) -> RouteExplanation {
+    pub fn explain(&self, prompt: &str) -> Result<RouteExplanation> {
         let profile = PromptProfile::from_prompt(prompt);
 
         // Mirror the priority order in `selection.rs::route_with_rules`.
@@ -75,8 +76,8 @@ impl ModelRouter {
             "default → OpenAI → Anthropic → Ollama"
         };
 
-        RouteExplanation {
-            decision: self.route_with_rules(prompt),
+        Ok(RouteExplanation {
+            decision: self.route_with_rules(prompt)?,
             matched_rule,
             features: vec![
                 ("needs_privacy", profile.needs_privacy),
@@ -91,6 +92,6 @@ impl ModelRouter {
                     profile.is_creative_or_general_cloud,
                 ),
             ],
-        }
+        })
     }
 }

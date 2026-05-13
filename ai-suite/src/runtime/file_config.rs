@@ -5,9 +5,11 @@
 //! falls back to defaults. Environment variables always take priority over
 //! file values.
 
-use std::path::Path;
+use std::{io::ErrorKind, path::Path};
 
 use serde::Deserialize;
+
+use crate::{Error, Result};
 
 /// Top-level file config. All fields optional.
 #[derive(Clone, Debug, Default, Deserialize)]
@@ -38,6 +40,7 @@ pub(crate) struct ContextSection {
 
 /// Result of attempting to load the file config: always returns *some* config
 /// (defaults on error), plus warnings for the user.
+#[derive(Debug)]
 pub(crate) struct LoadedFileConfig {
     pub(crate) config: FileConfig,
     pub(crate) source_path: Option<std::path::PathBuf>,
@@ -49,43 +52,54 @@ impl LoadedFileConfig {
     /// (returns defaults, no warnings). I/O errors and parse errors become
     /// warnings; the returned config is the default in those cases.
     pub(crate) fn read(path: &Path) -> Self {
-        if !path.exists() {
-            return Self {
-                config: FileConfig::default(),
-                source_path: None,
-                warnings: Vec::new(),
-            };
-        }
-
-        let raw = match std::fs::read_to_string(path) {
-            Ok(text) => text,
-            Err(error) => {
-                return Self {
-                    config: FileConfig::default(),
-                    source_path: None,
-                    warnings: vec![format!(
-                        "Could not read config file at {}: {error}. Using defaults.",
-                        path.display()
-                    )],
-                };
-            }
-        };
-
-        match toml::from_str::<FileConfig>(&raw) {
-            Ok(config) => Self {
+        match read_config_file(path) {
+            Ok(Some(config)) => Self {
                 config,
                 source_path: Some(path.to_path_buf()),
+                warnings: Vec::new(),
+            },
+            Ok(None) => Self {
+                config: FileConfig::default(),
+                source_path: None,
                 warnings: Vec::new(),
             },
             Err(error) => Self {
                 config: FileConfig::default(),
                 source_path: None,
-                warnings: vec![format!(
-                    "Config file at {} is malformed: {error}. Using defaults.",
-                    path.display()
-                )],
+                warnings: vec![warning_for_load_error(path, &error)],
             },
         }
+    }
+}
+
+fn read_config_file(path: &Path) -> Result<Option<FileConfig>> {
+    let raw = match std::fs::read_to_string(path) {
+        Ok(text) => text,
+        Err(error) if error.kind() == ErrorKind::NotFound => return Ok(None),
+        Err(error) => return Err(Error::io("read config file", path, error)),
+    };
+
+    parse_config_file(&raw).map(Some)
+}
+
+fn parse_config_file(raw: &str) -> Result<FileConfig> {
+    toml::from_str(raw).map_err(|source| Error::toml_deserialize("runtime config file", source))
+}
+
+fn warning_for_load_error(path: &Path, error: &Error) -> String {
+    match error {
+        Error::TomlDeserialize { .. } => format!(
+            "Config file at {} is malformed: {error}. Using defaults.",
+            path.display()
+        ),
+        Error::Io { source, .. } => format!(
+            "Could not read config file at {}: {source}. Using defaults.",
+            path.display()
+        ),
+        _ => format!(
+            "Could not load config file at {}: {error}. Using defaults.",
+            path.display()
+        ),
     }
 }
 
@@ -128,7 +142,12 @@ mod tests {
             "ai-suite-config-test-{}-{id}.toml",
             std::process::id()
         ));
-        std::fs::write(&path, contents).expect("write temp");
+        if let Err(error) = std::fs::write(&path, contents) {
+            panic!(
+                "failed to write temp config fixture at {}: {error}",
+                path.display()
+            );
+        }
         path
     }
 
@@ -167,5 +186,27 @@ context_turns = 12
         assert_eq!(result.config.models.openai_model.as_deref(), Some("gpt-4o"));
         assert_eq!(result.config.context.context_turns, Some(12));
         assert_eq!(result.config.context.stored_turns, None);
+    }
+
+    #[test]
+    fn unreadable_path_yields_defaults_with_warning() {
+        let id = SEQ.fetch_add(1, Ordering::Relaxed);
+        let path = std::env::temp_dir().join(format!(
+            "ai-suite-config-test-dir-{}-{id}",
+            std::process::id()
+        ));
+        if let Err(error) = std::fs::create_dir(&path) {
+            panic!(
+                "failed to create temp config fixture dir at {}: {error}",
+                path.display()
+            );
+        }
+
+        let result = LoadedFileConfig::read(&path);
+
+        let _ = std::fs::remove_dir(&path);
+        assert!(!result.warnings.is_empty());
+        assert!(result.warnings[0].contains("Could not read config file"));
+        assert!(result.config.models.openai_model.is_none());
     }
 }

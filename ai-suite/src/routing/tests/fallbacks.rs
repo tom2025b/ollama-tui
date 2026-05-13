@@ -9,7 +9,7 @@ fn simple_prompt_chooses_fast_ollama_model() {
         enabled_model(Provider::Ollama, DEFAULT_FAST_OLLAMA_MODEL),
     ]);
 
-    let decision = router.route("quick summary");
+    let decision = router.route("quick summary").unwrap();
 
     assert_eq!(decision.model.name, DEFAULT_FAST_OLLAMA_MODEL);
 }
@@ -26,7 +26,7 @@ fn fast_ollama_model_can_match_primary_model_name() {
         enabled_model(Provider::Ollama, PRIMARY_OLLAMA_MODEL),
     ]);
 
-    let decision = router.route("quick summary");
+    let decision = router.route("quick summary").unwrap();
 
     assert_eq!(decision.model.name, PRIMARY_OLLAMA_MODEL);
 }
@@ -40,7 +40,9 @@ fn code_prompt_prefers_claude_when_enabled() {
         enabled_model(Provider::OpenAi, openai::DEFAULT_OPENAI_MODEL),
     ]);
 
-    let decision = router.route("debug this Rust compile error and explain the fix");
+    let decision = router
+        .route("debug this Rust compile error and explain the fix")
+        .unwrap();
 
     assert_eq!(decision.model.provider, Provider::Anthropic);
 }
@@ -54,7 +56,9 @@ fn code_prompt_falls_back_when_claude_is_disabled() {
         enabled_model(Provider::OpenAi, openai::DEFAULT_OPENAI_MODEL),
     ]);
 
-    let decision = router.route("debug this Rust compile error and explain the fix");
+    let decision = router
+        .route("debug this Rust compile error and explain the fix")
+        .unwrap();
 
     assert_eq!(decision.model.provider, Provider::OpenAi);
 }
@@ -68,7 +72,9 @@ fn current_context_prompt_prefers_grok_when_enabled() {
         enabled_model(Provider::OpenAi, openai::DEFAULT_OPENAI_MODEL),
     ]);
 
-    let decision = router.route("what is the latest public debate around AI policy");
+    let decision = router
+        .route("what is the latest public debate around AI policy")
+        .unwrap();
 
     assert_eq!(decision.model.provider, Provider::Xai);
 }

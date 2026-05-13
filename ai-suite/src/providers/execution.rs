@@ -1,7 +1,8 @@
-use anyhow::Result;
-
-use crate::llm::{ConversationTurn, LanguageModel, Provider};
 use crate::providers::{anthropic, ollama, openai, xai};
+use crate::{
+    Result,
+    llm::{ConversationTurn, LanguageModel, Provider},
+};
 
 /// Provider-neutral request handed to the concrete model backends.
 #[derive(Clone, Debug)]

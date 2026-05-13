@@ -1,9 +1,9 @@
 use std::future::Future;
 use std::pin::Pin;
 
-use anyhow::Result;
 use clap::Subcommand;
 
+use crate::Result;
 use crate::runtime::Runtime;
 
 #[derive(Debug, Clone, Copy, PartialEq, Eq, Subcommand)]

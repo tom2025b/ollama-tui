@@ -7,9 +7,7 @@ mod types;
 
 pub use client::OllamaClient;
 
-use anyhow::Result;
-
-use crate::llm::ConversationTurn;
+use crate::{Result, llm::ConversationTurn};
 
 /// Stream a prompt to Ollama using environment/default configuration.
 pub async fn stream<F>(

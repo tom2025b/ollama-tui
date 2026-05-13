@@ -1,7 +1,5 @@
-use anyhow::Result;
-
-use crate::llm::ConversationTurn;
 use crate::providers::openai_compatible::ChatCompletionsClient;
+use crate::{Result, llm::ConversationTurn};
 
 /// OpenAI API key environment variable.
 pub const OPENAI_API_KEY_ENV: &str = "OPENAI_API_KEY";

@@ -1,6 +1,5 @@
-use std::{error::Error, fmt};
-
 use super::spec::{Tool, ToolDefinition};
+use crate::{Error, Result};
 
 /// Registry for provider-neutral tools shared by top-level subcommands.
 #[derive(Default)]
@@ -18,20 +17,20 @@ impl ToolRegistry {
         Self::default()
     }
 
-    pub fn with_builtins() -> Result<Self, ToolRegistryError> {
+    pub fn with_builtins() -> Result<Self> {
         let mut registry = Self::new();
         super::builtins::register(&mut registry)?;
         Ok(registry)
     }
 
-    pub fn register<T>(&mut self, tool: T) -> Result<(), ToolRegistryError>
+    pub fn register<T>(&mut self, tool: T) -> Result<()>
     where
         T: Tool + 'static,
     {
         let definition = tool.definition();
         let name = definition.name().to_string();
         if self.contains(&name) {
-            return Err(ToolRegistryError::DuplicateName(name));
+            return Err(Error::tool(format!("tool '{name}' is already registered")));
         }
 
         self.tools.push(RegisteredTool {
@@ -68,25 +67,8 @@ impl ToolRegistry {
     }
 }
 
-#[derive(Clone, Debug, Eq, PartialEq)]
-pub enum ToolRegistryError {
-    DuplicateName(String),
-}
-
-impl fmt::Display for ToolRegistryError {
-    fn fmt(&self, formatter: &mut fmt::Formatter<'_>) -> fmt::Result {
-        match self {
-            Self::DuplicateName(name) => write!(formatter, "tool '{name}' is already registered"),
-        }
-    }
-}
-
-impl Error for ToolRegistryError {}
-
 #[cfg(test)]
 mod tests {
-    use anyhow::Result;
-
     use super::*;
     use crate::tools::execution::{ToolInvocation, ToolOutput};
 
@@ -121,7 +103,10 @@ mod tests {
 
     #[test]
     fn with_builtins_registers_public_tools() {
-        let registry = ToolRegistry::with_builtins().expect("built-in registration should succeed");
+        let registry = match ToolRegistry::with_builtins() {
+            Ok(registry) => registry,
+            Err(error) => panic!("built-in registration should succeed: {error}"),
+        };
 
         assert_eq!(registry.len(), 2);
         assert!(registry.contains("utc_timestamp"));
@@ -131,14 +116,18 @@ mod tests {
     #[test]
     fn registry_registers_and_resolves_tools() {
         let mut registry = ToolRegistry::new();
-        registry
-            .register(StaticTool::new("static"))
-            .expect("tool should register");
+        if let Err(error) = registry.register(StaticTool::new("static")) {
+            panic!("tool should register: {error}");
+        }
 
-        let tool = registry.resolve("static").expect("tool should resolve");
-        let output = tool
-            .execute(ToolInvocation::new("static", serde_json::Value::Null))
-            .expect("tool should execute");
+        let tool = match registry.resolve("static") {
+            Some(tool) => tool,
+            None => panic!("tool should resolve"),
+        };
+        let output = match tool.execute(ToolInvocation::new("static", serde_json::Value::Null)) {
+            Ok(output) => output,
+            Err(error) => panic!("tool should execute: {error}"),
+        };
 
         assert!(registry.contains("static"));
         assert_eq!(registry.len(), 1);
@@ -149,17 +138,20 @@ mod tests {
     #[test]
     fn registry_rejects_duplicate_names() {
         let mut registry = ToolRegistry::new();
-        registry
-            .register(StaticTool::new("static"))
-            .expect("first tool should register");
+        if let Err(error) = registry.register(StaticTool::new("static")) {
+            panic!("first tool should register: {error}");
+        }
 
-        let error = registry
-            .register(StaticTool::new("static"))
-            .expect_err("duplicate tool should fail");
+        let error = match registry.register(StaticTool::new("static")) {
+            Ok(()) => panic!("duplicate tool should fail"),
+            Err(error) => error,
+        };
 
-        assert_eq!(
-            error,
-            ToolRegistryError::DuplicateName("static".to_string())
-        );
+        match error {
+            Error::Tool { message } => {
+                assert_eq!(message, "tool 'static' is already registered");
+            }
+            other => panic!("expected tool registration error, got {other}"),
+        }
     }
 }

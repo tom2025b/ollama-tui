@@ -1,5 +1,6 @@
 use std::{collections::VecDeque, ffi::OsStr};
 
+use crate::Result;
 use crate::llm::LanguageModel;
 use crate::prompt_rules::RulesState;
 use crate::routing::{ModelRouter, RouteExplanation};
@@ -180,7 +181,7 @@ impl App {
 
     /// Run the router for `prompt` without dispatching to a model. Used by
     /// `/route` to introspect routing behavior.
-    pub(crate) fn explain_route(&self, prompt: &str) -> RouteExplanation {
+    pub(crate) fn explain_route(&self, prompt: &str) -> Result<RouteExplanation> {
         self.routing.router.explain(prompt)
     }
 }

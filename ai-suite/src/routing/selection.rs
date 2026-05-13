@@ -1,5 +1,8 @@
 use super::{ModelRouter, PromptProfile};
-use crate::llm::{Provider, RouteDecision};
+use crate::{
+    Result,
+    llm::{Provider, RouteDecision},
+};
 
 struct RoutePlan {
     providers: &'static [Provider],
@@ -47,14 +50,14 @@ const EXACT_MODEL_UNAVAILABLE_REASON: &str =
 
 impl ModelRouter {
     /// Internal implementation for the current rule-based router.
-    pub(super) fn route_with_rules(&self, prompt: &str) -> RouteDecision {
+    pub(super) fn route_with_rules(&self, prompt: &str) -> Result<RouteDecision> {
         let profile = PromptProfile::from_prompt(prompt);
 
         if profile.needs_privacy {
-            return RouteDecision {
-                model: self.primary_ollama_model(),
+            return Ok(RouteDecision {
+                model: self.primary_ollama_model()?,
                 reason: PRIVACY_REASON.to_string(),
-            };
+            });
         }
 
         if profile.needs_current_context {
@@ -80,20 +83,20 @@ impl ModelRouter {
         self.choose_from_plan(&DEFAULT_GENERAL_PLAN)
     }
 
-    fn choose_from_plan(&self, plan: &RoutePlan) -> RouteDecision {
+    fn choose_from_plan(&self, plan: &RoutePlan) -> Result<RouteDecision> {
         for provider in plan.providers {
             if let Some(model) = self.first_enabled_provider(provider) {
-                return RouteDecision {
+                return Ok(RouteDecision {
                     model,
                     reason: plan.reason.to_string(),
-                };
+                });
             }
         }
 
-        RouteDecision {
-            model: self.primary_ollama_model(),
+        Ok(RouteDecision {
+            model: self.primary_ollama_model()?,
             reason: NO_BACKEND_REASON.to_string(),
-        }
+        })
     }
 
     fn choose_specific_model(
@@ -101,22 +104,22 @@ impl ModelRouter {
         provider: &Provider,
         model_name: &str,
         reason: &str,
-    ) -> RouteDecision {
+    ) -> Result<RouteDecision> {
         if let Some(model) = self
             .models
             .iter()
             .find(|model| model.enabled && &model.provider == provider && model.name == model_name)
             .cloned()
         {
-            return RouteDecision {
+            return Ok(RouteDecision {
                 model,
                 reason: reason.to_string(),
-            };
+            });
         }
 
-        RouteDecision {
-            model: self.primary_ollama_model(),
+        Ok(RouteDecision {
+            model: self.primary_ollama_model()?,
             reason: EXACT_MODEL_UNAVAILABLE_REASON.to_string(),
-        }
+        })
     }
 }

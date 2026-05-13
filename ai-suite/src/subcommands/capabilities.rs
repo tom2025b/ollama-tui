@@ -1,6 +1,5 @@
-use anyhow::Result;
-
 use crate::{
+    Result,
     extensions::ExtensionRegistry,
     tools::{registry::ToolRegistry, spec::ToolDefinition},
 };

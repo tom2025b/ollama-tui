@@ -463,7 +463,7 @@ fn classify(chain: &str) -> Option<String> {
             "{provider} is having trouble right now (server error). Try again in a moment."
         ));
     }
-    if chain.contains("ollama returned 404") {
+    if chain.contains("ollama returned http 404") {
         return Some(
             "Ollama is running but rejected the request (404). The model name may be wrong or the API path changed."
                 .into(),
@@ -537,9 +537,9 @@ fn detect_provider_with_http(chain: &str, codes: &[&str]) -> Option<&'static str
         return None;
     };
 
-    let mentions_code = codes.iter().any(|code| {
-        chain.contains(&format!("http {code}")) || chain.contains(&format!(" {code} "))
-    });
+    let mentions_code = codes
+        .iter()
+        .any(|code| chain.contains(&format!("http {code}")));
 
     mentions_code.then_some(provider)
 }
@@ -565,7 +565,10 @@ mod tests {
             }
         }
 
-        fn with_source(message: &'static str, source: impl StdError + Send + Sync + 'static) -> Self {
+        fn with_source(
+            message: &'static str,
+            source: impl StdError + Send + Sync + 'static,
+        ) -> Self {
             Self {
                 message,
                 source: Some(Box::new(source)),

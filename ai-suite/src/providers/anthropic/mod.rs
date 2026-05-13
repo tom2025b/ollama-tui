@@ -47,7 +47,7 @@ where
     while let Some(chunk) = response.chunk().await.map_err(|source| {
         Error::streaming(
             "Anthropic",
-            format!("failed to read Anthropic stream chunk: {source}"),
+            format!("failed to read stream chunk: {source}"),
         )
     })? {
         append_utf8_chunk("Anthropic", &mut pending_utf8, &mut buffer, &chunk)?;

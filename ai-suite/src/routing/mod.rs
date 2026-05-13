@@ -58,7 +58,7 @@ impl ModelRouter {
             .find(|model| model.provider == Provider::Ollama && model.name == PRIMARY_OLLAMA_MODEL)
             .cloned()
             .ok_or_else(|| {
-                Error::routing(format!(
+                Error::invariant(format!(
                     "router is missing required primary Ollama model `{PRIMARY_OLLAMA_MODEL}`"
                 ))
             })

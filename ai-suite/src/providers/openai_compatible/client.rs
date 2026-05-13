@@ -84,10 +84,7 @@ impl ChatCompletionsClient {
         while let Some(chunk) = response.chunk().await.map_err(|source| {
             Error::streaming(
                 self.provider_name,
-                format!(
-                    "failed to read {} stream chunk: {source}",
-                    self.provider_name
-                ),
+                format!("failed to read stream chunk: {source}"),
             )
         })? {
             append_utf8_chunk(self.provider_name, &mut pending_utf8, &mut buffer, &chunk)?;

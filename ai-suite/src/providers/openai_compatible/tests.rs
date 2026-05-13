@@ -62,7 +62,7 @@ async fn test_stream_error_propagates() {
         Error::Streaming { provider, message } => {
             assert_eq!(provider, "OpenAI");
             assert!(
-                message.contains("failed to read OpenAI stream chunk"),
+                message.contains("failed to read stream chunk"),
                 "unexpected error: {message}"
             );
         }

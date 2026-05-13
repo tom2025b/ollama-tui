@@ -16,6 +16,7 @@ No additional workspace follow-up is queued for this audit.
   audit record.
 - Final closure verification passed with `cargo check --workspace` and
   `cargo test --workspace` on 2026-05-13.
+- Module 18 applied five minor post-review polish fixes on 2026-05-13.
 
 Completed:
 
@@ -37,6 +38,9 @@ Completed:
 - Module 15: final core-crate `anyhow` removal and stale reference cleanup
 - Module 16: final workspace cleanup
 - Module 17: full verification + final documentation/status update
+- Module 18: post-review polish (dead `friendly_error` branch, brittle HTTP-code
+  fallback, routing invariant variant, deduplicated streaming-chunk messages,
+  shared `require_success` helper)
 
 ## What Changed
 
@@ -353,6 +357,52 @@ Changed files:
 Changed files:
 
 - `error-audit-progress.md`
+
+### Module 18
+
+Post-review polish pass on 2026-05-13. Five small targeted fixes surfaced by an
+external code review of the post-audit state:
+
+- Fixed a dead branch in `errors::classify` that searched for `"ollama returned
+  404"` even though `Error::HttpStatus` produces `"ollama returned http 404"`.
+  The Ollama-specific 404 hint is now reachable again.
+- Removed a brittle bare-space `" {code} "` fallback in
+  `errors::detect_provider_with_http` that could false-positive on response
+  bodies mentioning an HTTP-like number. Only the `"http {code}"` form remains.
+- Switched the missing-primary-Ollama-model error in `routing::ModelRouter` from
+  `Error::Routing` to `Error::Invariant`, since the catalog construction is
+  supposed to guarantee it. Updated the two invariant tests to match.
+- Removed the duplicated provider name from the streaming chunk-read error
+  messages in `providers/anthropic/mod.rs`,
+  `providers/ollama/client.rs`, and `providers/openai_compatible/client.rs`.
+  Updated the Module 0 regression test to assert on the new message.
+- Extracted the `require_success` body into a shared
+  `providers/http.rs::require_success(response, provider_name)` helper. The
+  three per-provider `http.rs` files keep their own thin wrappers (preserving
+  the deliberate modular layout) but delegate to the shared body.
+
+Changed files:
+
+- `ai-suite/src/errors.rs`
+- `ai-suite/src/routing/mod.rs`
+- `ai-suite/src/routing/tests/invariants.rs`
+- `ai-suite/src/providers/mod.rs`
+- `ai-suite/src/providers/http.rs` (new)
+- `ai-suite/src/providers/anthropic/http.rs`
+- `ai-suite/src/providers/anthropic/mod.rs`
+- `ai-suite/src/providers/ollama/http.rs`
+- `ai-suite/src/providers/ollama/client.rs`
+- `ai-suite/src/providers/openai_compatible/http.rs`
+- `ai-suite/src/providers/openai_compatible/client.rs`
+- `ai-suite/src/providers/openai_compatible/tests.rs`
+- `error-audit-progress.md`
+
+Verification:
+
+- `cargo check --workspace`
+- `cargo test --workspace`
+- `cargo clippy --workspace --all-targets -- -D warnings`
+- `cargo fmt --all -- --check`
 
 ## Verification Run So Far
 

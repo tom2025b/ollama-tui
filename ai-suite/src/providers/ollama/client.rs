@@ -110,10 +110,7 @@ impl OllamaClient {
         let (mut buffer, mut answer, mut pending_utf8) = (String::new(), String::new(), Vec::new());
 
         while let Some(chunk) = response.chunk().await.map_err(|source| {
-            Error::streaming(
-                "Ollama",
-                format!("failed to read Ollama stream chunk: {source}"),
-            )
+            Error::streaming("Ollama", format!("failed to read stream chunk: {source}"))
         })? {
             append_utf8_chunk("Ollama", &mut pending_utf8, &mut buffer, &chunk)?;
             process_ollama_stream_buffer(&mut buffer, &mut answer, &mut on_token)?;

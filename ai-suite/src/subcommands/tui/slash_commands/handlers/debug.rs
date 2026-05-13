@@ -3,7 +3,7 @@ use crate::subcommands::tui::app::App;
 use crate::subcommands::tui::slash_commands::parser::ParsedCommand;
 
 /// `/debug` — toggle full-error display. With debug on, model failures show
-/// the entire `anyhow` chain instead of the friendly summary.
+/// the full error chain instead of the friendly summary.
 pub fn debug_command(app: &mut App, command: &ParsedCommand) {
     let now_on = errors::toggle_debug_mode();
     let body = if now_on {

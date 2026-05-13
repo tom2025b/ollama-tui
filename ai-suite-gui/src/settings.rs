@@ -1,7 +1,10 @@
 use std::{
     fs,
+    io::ErrorKind,
     path::{Path, PathBuf},
 };
+
+use ai_suite::{Error, Result, friendly_error};
 
 use crate::app::App;
 
@@ -16,9 +19,9 @@ pub struct GuiPreferences {
 
 impl GuiPreferences {
     pub fn load() -> Self {
-        let text_scale = preferences_path()
-            .and_then(|path| fs::read_to_string(path).ok())
-            .and_then(|content| parse_text_scale(&content))
+        let text_scale = load_text_scale()
+            .ok()
+            .flatten()
             .unwrap_or(DEFAULT_TEXT_SCALE);
 
         Self {
@@ -26,18 +29,18 @@ impl GuiPreferences {
         }
     }
 
-    pub fn save(&self) -> Result<(), String> {
-        let path = preferences_path().ok_or_else(|| "Could not resolve config path".to_string())?;
+    pub fn save(&self) -> Result<()> {
+        let path = preferences_path()?;
         let parent = path
             .parent()
-            .ok_or_else(|| "Could not resolve config directory".to_string())?;
+            .ok_or_else(|| Error::invariant("GUI preferences path has no parent directory"))?;
         fs::create_dir_all(parent)
-            .map_err(|error| format!("Could not create {}: {error}", parent.display()))?;
+            .map_err(|error| Error::io("creating GUI config directory", parent, error))?;
         fs::write(
             path.as_path(),
             format!("text_scale = {:.2}\n", self.text_scale),
         )
-        .map_err(|error| format!("Could not write {}: {error}", path.display()))
+        .map_err(|error| Error::io("writing GUI preferences", path, error))
     }
 }
 
@@ -65,9 +68,31 @@ impl App {
         };
         self.status = match preferences.save() {
             Ok(()) => format!("Text size {}", self.text_scale_label()),
-            Err(error) => format!("Text size {} ({error})", self.text_scale_label()),
+            Err(error) => format!(
+                "Text size {} ({})",
+                self.text_scale_label(),
+                friendly_error(&error)
+            ),
         };
     }
+}
+
+fn load_text_scale() -> Result<Option<f32>> {
+    let path = preferences_path()?;
+    let content = match fs::read_to_string(&path) {
+        Ok(content) => content,
+        Err(error) if error.kind() == ErrorKind::NotFound => return Ok(None),
+        Err(error) => return Err(Error::io("reading GUI preferences", &path, error)),
+    };
+
+    let value = parse_text_scale(&content).ok_or_else(|| {
+        Error::configuration(format!(
+            "GUI preferences at {} contain an invalid `text_scale` value",
+            path.display()
+        ))
+    })?;
+
+    Ok(Some(value))
 }
 
 fn clamp_text_scale(text_scale: f32) -> f32 {
@@ -88,15 +113,19 @@ fn parse_text_scale(content: &str) -> Option<f32> {
     })
 }
 
-fn preferences_path() -> Option<PathBuf> {
+fn preferences_path() -> Result<PathBuf> {
     if let Some(config_home) = std::env::var_os("XDG_CONFIG_HOME") {
-        return Some(Path::new(&config_home).join("ai-suite").join("gui.toml"));
+        return Ok(Path::new(&config_home).join("ai-suite").join("gui.toml"));
     }
 
-    std::env::var_os("HOME").map(|home| {
-        Path::new(&home)
-            .join(".config")
-            .join("ai-suite")
-            .join("gui.toml")
-    })
+    std::env::var_os("HOME")
+        .map(|home| {
+            Path::new(&home)
+                .join(".config")
+                .join("ai-suite")
+                .join("gui.toml")
+        })
+        .ok_or_else(|| {
+            Error::configuration("could not resolve GUI config path from HOME or XDG_CONFIG_HOME")
+        })
 }

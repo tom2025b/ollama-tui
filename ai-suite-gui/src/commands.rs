@@ -122,21 +122,6 @@ pub fn find_command(name: &str) -> Option<&'static CommandSpec> {
         .find(|command| command.name == name || command.aliases.contains(&name))
 }
 
-pub fn help_text() -> String {
-    let rows = COMMANDS
-        .iter()
-        .map(|command| {
-            format!(
-                "{:<20} {}\n    {}",
-                command.usage, command.hint, command.detail
-            )
-        })
-        .collect::<Vec<_>>()
-        .join("\n\n");
-
-    format!("Slash commands\n\n{rows}")
-}
-
 pub fn command_body(command: &ParsedCommand) -> String {
     command.args().join(" ")
 }

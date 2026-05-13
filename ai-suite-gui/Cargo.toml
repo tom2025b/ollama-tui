@@ -16,4 +16,3 @@ ai-suite = { path = "../ai-suite" }
 eframe   = "0.28"
 egui     = "0.28"
 tokio    = { version = "1", features = ["rt-multi-thread"] }
-anyhow   = "1"

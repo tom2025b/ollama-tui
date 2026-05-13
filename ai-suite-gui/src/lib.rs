@@ -9,6 +9,7 @@ mod ui;
 use app::App;
 
 pub fn run() -> ai_suite::Result<()> {
+    ai_suite::init_debug_mode_from_env();
     let rt = tokio::runtime::Builder::new_multi_thread()
         .enable_all()
         .build()

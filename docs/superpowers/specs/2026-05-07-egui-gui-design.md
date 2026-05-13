@@ -46,7 +46,7 @@ pub async fn stream_prompt(
     prompt: String,
     context: Vec<ConversationTurn>,
     on_token: impl FnMut(String),
-) -> anyhow::Result<(String, String)>  // (full_response_text, model_name)
+) -> ai_suite::Result<(String, String)>  // (full_response_text, model_name)
 ```
 
 Internals:
@@ -74,7 +74,6 @@ Dependencies:
 - `ai-suite = { path = "../ai-suite" }`
 - `eframe = "0.29"` (includes egui)
 - `tokio = { version = "1", features = ["macros", "rt-multi-thread"] }`
-- `anyhow = "1"`
 
 ### File structure
 

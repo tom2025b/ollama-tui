@@ -1,13 +1,12 @@
 //! Centralized error definitions and user-facing error rendering.
 //!
 //! The long-term contract for this crate is that public fallible APIs return
-//! [`Result<T>`](Result) with the root [`Error`] enum defined here. The rest of
-//! the codebase is still being migrated away from `anyhow`, so
-//! [`friendly_error`] intentionally accepts any standard error and can still
-//! render existing `anyhow::Error` chains at the application boundary.
+//! [`Result<T>`](Result) with the root [`Error`] enum defined here.
+//! [`friendly_error`] intentionally accepts any standard error so callers can
+//! get the same user-facing rendering for typed errors and standard error
+//! chains.
 
 use std::{
-    any::Any,
     env::VarError,
     error::Error as StdError,
     path::PathBuf,
@@ -368,23 +367,12 @@ pub fn debug_mode_enabled() -> bool {
 
 /// Render an error chain for a user. In debug mode, returns the full chain via
 /// `{:#}`. Otherwise, returns a single short sentence with a recovery hint.
-pub fn friendly_error<E>(error: &E) -> String
-where
-    E: Any + std::fmt::Display,
-{
+pub fn friendly_error(error: &(dyn StdError + 'static)) -> String {
     if debug_mode_enabled() {
         return format!("{error:#}");
     }
 
-    let chain_text = if let Some(anyhow_error) = (error as &dyn Any).downcast_ref::<anyhow::Error>()
-    {
-        chain_text_anyhow(anyhow_error)
-    } else if let Some(root_error) = (error as &dyn Any).downcast_ref::<Error>() {
-        chain_text_std(root_error)
-    } else {
-        error.to_string().to_lowercase()
-    };
-
+    let chain_text = chain_text_std(error);
     classify(&chain_text).unwrap_or_else(|| short_summary(error))
 }
 
@@ -399,21 +387,6 @@ fn chain_text_std(error: &(dyn StdError + 'static)) -> String {
         }
         buffer.push_str(&cause.to_string());
         current = cause.source();
-    }
-
-    buffer.to_lowercase()
-}
-
-/// Concatenate every `anyhow` chain layer into one lowercase string for
-/// matching.
-fn chain_text_anyhow(error: &anyhow::Error) -> String {
-    let mut buffer = String::new();
-
-    for cause in error.chain() {
-        if !buffer.is_empty() {
-            buffer.push_str(" :: ");
-        }
-        buffer.push_str(&cause.to_string());
     }
 
     buffer.to_lowercase()
@@ -573,32 +546,71 @@ fn detect_provider_with_http(chain: &str, codes: &[&str]) -> Option<&'static str
 
 #[cfg(test)]
 mod tests {
-    //! Tests target the pure helpers (`classify`, `short_summary`, `chain_text`)
-    //! to avoid racing on the process-wide `DEBUG_MODE` flag.
+    //! Tests target the pure helpers (`classify`, `short_summary`,
+    //! `chain_text_std`) to avoid racing on the process-wide `DEBUG_MODE` flag.
 
     use super::*;
-    use anyhow::anyhow;
 
-    fn err(msg: &str) -> anyhow::Error {
-        anyhow!("{msg}")
+    #[derive(Debug)]
+    struct TestError {
+        message: &'static str,
+        source: Option<Box<dyn StdError + Send + Sync>>,
     }
 
-    fn classify_of(error: &anyhow::Error) -> Option<String> {
-        classify(&chain_text_anyhow(error))
+    impl TestError {
+        fn new(message: &'static str) -> Self {
+            Self {
+                message,
+                source: None,
+            }
+        }
+
+        fn with_source(message: &'static str, source: impl StdError + Send + Sync + 'static) -> Self {
+            Self {
+                message,
+                source: Some(Box::new(source)),
+            }
+        }
+    }
+
+    impl std::fmt::Display for TestError {
+        fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
+            f.write_str(self.message)
+        }
+    }
+
+    impl StdError for TestError {
+        fn source(&self) -> Option<&(dyn StdError + 'static)> {
+            self.source
+                .as_deref()
+                .map(|source| source as &(dyn StdError + 'static))
+        }
+    }
+
+    fn err(msg: &'static str) -> TestError {
+        TestError::new(msg)
+    }
+
+    fn classify_of(error: &TestError) -> Option<String> {
+        classify(&chain_text_std(error))
     }
 
     #[test]
     fn translates_ollama_connection_failure() {
-        let e = err("connection refused")
-            .context("failed to contact Ollama at http://127.0.0.1:11434/api/chat");
+        let e = TestError::with_source(
+            "failed to contact Ollama at http://127.0.0.1:11434/api/chat",
+            err("connection refused"),
+        );
         let out = classify_of(&e).expect("should classify");
         assert!(out.contains("ollama serve"), "got: {out}");
     }
 
     #[test]
     fn translates_missing_api_key() {
-        let e = err("environment variable not found")
-            .context("Anthropic backend requires the `ANTHROPIC_API_KEY` environment variable");
+        let e = TestError::with_source(
+            "Anthropic backend requires the `ANTHROPIC_API_KEY` environment variable",
+            err("environment variable not found"),
+        );
         let out = classify_of(&e).expect("should classify");
         assert!(out.contains("ANTHROPIC_API_KEY"), "got: {out}");
         assert!(out.contains("Claude"), "got: {out}");

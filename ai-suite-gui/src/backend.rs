@@ -1,4 +1,4 @@
-use ai_suite::{ConversationTurn, stream_prompt, stream_prompt_with_model};
+use ai_suite::{ConversationTurn, Error, stream_prompt, stream_prompt_with_model};
 use egui::Context;
 use tokio::{runtime::Handle, sync::mpsc};
 
@@ -12,8 +12,8 @@ pub enum BackendEvent {
         full_text: String,
         model_name: String,
     },
-    /// A network or API error. The string is human-readable.
-    Error(String),
+    /// A network or API error.
+    Error(Error),
 }
 
 /// Spawn a background tokio task that calls stream_prompt and sends events to
@@ -51,7 +51,7 @@ pub fn spawn_request(
                 });
             }
             Err(e) => {
-                let _ = tx.send(BackendEvent::Error(e.to_string()));
+                let _ = tx.send(BackendEvent::Error(e));
             }
         }
         ctx.request_repaint();

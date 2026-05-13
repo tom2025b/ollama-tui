@@ -1,12 +1,11 @@
 # Error Audit Progress
 
-Snapshot date: 2026-05-12
+Snapshot date: 2026-05-13
 
 ## Current Scope
 
-The centralized error-handling audit is currently complete through Module 13.
-No work has started yet on Modules 14 and later.
-The audit is paused here due to token limit.
+The centralized error-handling audit is currently complete through Module 15.
+No additional production workspace follow-up is currently queued.
 
 Completed:
 
@@ -24,10 +23,8 @@ Completed:
 - Module 11: bootstrap + CLI core follow-up hardening
 - Module 12: `ai-suite-cli/*`
 - Module 13: `ai-suite-gui/*` entry surfaces
-
-Paused:
-
-- Module 14 and beyond
+- Module 14: GUI internal error-flow cleanup and wrapper-crate dependency cleanup
+- Module 15: final core-crate `anyhow` removal and stale reference cleanup
 
 ## What Changed
 
@@ -276,6 +273,53 @@ Changed files:
 - `ai-suite-gui/src/lib.rs`
 - `ai-suite-gui/src/main.rs`
 
+### Module 14
+
+- Preserved typed `ai_suite::Error` values through the GUI background-stream
+  event channel instead of flattening provider/runtime failures into strings.
+- Switched the GUI error display path onto the centralized `friendly_error`
+  and shared debug-mode flag so `/debug` and `AI_SUITE_DEBUG=1` now behave
+  consistently with the rest of the workspace.
+- Converted GUI preference-path/save/load helpers from ad hoc string errors to
+  centralized `ai_suite::Error`/`Result`, while preserving the existing
+  non-fatal startup fallback behavior for missing or invalid GUI prefs.
+- Removed stale `anyhow` dependencies from the CLI and GUI wrapper crates.
+- Split GUI app action/error-handling logic into a dedicated submodule so the
+  main `app.rs` file is back under the 400-line limit.
+- Removed one dead GUI command helper so focused builds stay warning-free.
+
+Changed files:
+
+- `Cargo.lock`
+- `ai-suite-cli/Cargo.toml`
+- `ai-suite-gui/Cargo.toml`
+- `ai-suite-gui/src/app.rs`
+- `ai-suite-gui/src/app/actions.rs`
+- `ai-suite-gui/src/backend.rs`
+- `ai-suite-gui/src/commands.rs`
+- `ai-suite-gui/src/lib.rs`
+- `ai-suite-gui/src/settings.rs`
+
+### Module 15
+
+- Removed the final runtime `anyhow` dependency from the core `ai-suite` crate.
+- Simplified `friendly_error` onto standard error-chain traversal, which keeps
+  the same user-facing classification behavior without a special compatibility
+  branch.
+- Rewrote the `errors.rs` chain-classification tests onto a tiny local test
+  error type instead of `anyhow` contexts.
+- Cleaned up the remaining stale `anyhow` references in the TUI debug comment
+  and the old GUI design/planning notes.
+
+Changed files:
+
+- `Cargo.lock`
+- `ai-suite/Cargo.toml`
+- `ai-suite/src/errors.rs`
+- `ai-suite/src/subcommands/tui/slash_commands/handlers/debug.rs`
+- `docs/superpowers/plans/2026-05-07-egui-gui.md`
+- `docs/superpowers/specs/2026-05-07-egui-gui-design.md`
+
 ## Verification Run So Far
 
 - `cargo test -p ai-suite test_stream_error_propagates -- --nocapture`
@@ -296,6 +340,11 @@ Changed files:
 - `cargo test -p ai-suite bootstrap:: --lib`
 - `cargo check -p ai-suite-cli -p ai-suite-gui`
 - `cargo fmt --all`
+- `cargo test -p ai-suite-gui -p ai-suite-cli`
+- `cargo check --workspace`
+- `cargo clippy --workspace --all-targets -- -D warnings`
+- `cargo test --workspace`
+- `cargo check --workspace`
 
 All of the above completed successfully.
 
@@ -334,12 +383,22 @@ All of the above completed successfully.
 - `ai-suite/src/stream.rs`
 - `ai-suite/src/bootstrap.rs`
 - `ai-suite/src/cli/mod.rs`
+- `ai-suite/src/subcommands/tui/slash_commands/handlers/debug.rs`
+- `ai-suite-cli/Cargo.toml`
 - `ai-suite-cli/src/bin/ai.rs`
 - `ai-suite-cli/src/lib.rs`
 - `ai-suite-cli/src/main.rs`
+- `ai-suite-gui/Cargo.toml`
+- `ai-suite-gui/src/app.rs`
+- `ai-suite-gui/src/app/actions.rs`
+- `ai-suite-gui/src/backend.rs`
 - `ai-suite-gui/src/bin/ai-gui.rs`
+- `ai-suite-gui/src/commands.rs`
 - `ai-suite-gui/src/lib.rs`
 - `ai-suite-gui/src/main.rs`
+- `ai-suite-gui/src/settings.rs`
+- `docs/superpowers/plans/2026-05-07-egui-gui.md`
+- `docs/superpowers/specs/2026-05-07-egui-gui-design.md`
 - `ai-suite/src/providers/anthropic/http.rs`
 - `ai-suite/src/providers/anthropic/mod.rs`
 - `ai-suite/src/providers/anthropic/stream_parser.rs`
@@ -372,16 +431,14 @@ All of the above completed successfully.
 
 ## Next Planned Modules
 
-The next module in the approved rollout remains:
-
-- Module 14+: remaining workspace crates and follow-up cleanup, if needed
+No additional modules are currently queued for the centralized error audit.
+Module 15 removed the last runtime `anyhow` dependency from workspace code.
 
 ## Notes
 
 - The runtime startup behavior remains intentionally non-fatal for malformed
   config files; those cases now route through typed internal errors and emerge
   as user-facing warnings.
-- The core `ai-suite/src` production surfaces no longer rely on `anyhow`;
-  `errors.rs` still intentionally understands `anyhow::Error` chains so older
-  callers and tests remain friendly while the wider workspace catches up.
-- Audit paused due to token limit after Modules 12-13.
+- Historical audit/design notes may still mention `anyhow` where they describe
+  earlier migration steps, but the workspace code now routes through the
+  centralized typed error surface.

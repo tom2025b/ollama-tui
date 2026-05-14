@@ -10,18 +10,8 @@ pub async fn run(runtime: &Runtime) -> Result<()> {
     println!("Swarm readiness");
     println!("Models:");
     for model in router.models() {
-        let state = if model.enabled { "ready" } else { "setup" };
-        let detail = model
-            .disabled_reason
-            .as_deref()
-            .unwrap_or_else(|| model.strengths.first().map_or("available", String::as_str));
-        println!(
-            "- {} {} [{}] - {}",
-            model.provider.label(),
-            model.name,
-            state,
-            detail
-        );
+        let detail = model.strengths.first().map_or("available", String::as_str);
+        println!("- Ollama {} [ready] - {}", model.name, detail);
     }
 
     println!("Tools:");

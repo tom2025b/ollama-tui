@@ -107,6 +107,7 @@ fn select_next_is_noop_without_suggestions() {
 fn dismiss_suggestions_hides_popup_until_input_changes() {
     let mut app = App::new();
     app.session.input = "/".to_string();
+    app.session.input_cursor = 1;
     assert!(!app.command_suggestions().is_empty());
 
     app.dismiss_suggestions();

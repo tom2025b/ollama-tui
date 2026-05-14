@@ -126,21 +126,6 @@ fn build_config_report(app: &App) -> String {
             models.fast_ollama_model_setting().source().label(),
         ),
         (
-            "anthropic_model".into(),
-            models.anthropic().model_setting().value().clone(),
-            models.anthropic().model_setting().source().label(),
-        ),
-        (
-            "openai_model".into(),
-            models.openai().model_setting().value().clone(),
-            models.openai().model_setting().source().label(),
-        ),
-        (
-            "xai_model".into(),
-            models.xai().model_setting().value().clone(),
-            models.xai().model_setting().source().label(),
-        ),
-        (
             "context_turns".into(),
             context.context_turns_setting().value().to_string(),
             context.context_turns_setting().source().label(),
@@ -192,24 +177,6 @@ fn build_config_report(app: &App) -> String {
         );
     }
 
-    let _ = write!(
-        report,
-        "\nProviders ready: {}",
-        ready_providers_summary(models)
-    );
+    let _ = write!(report, "\nBackend: Ollama (local)");
     report
-}
-
-fn ready_providers_summary(models: &crate::runtime::ModelRuntimeConfig) -> String {
-    let mut entries = vec!["Ollama (always)".to_string()];
-    for (label, cloud) in [
-        ("Anthropic", models.anthropic()),
-        ("OpenAI", models.openai()),
-        ("xAI", models.xai()),
-    ] {
-        if cloud.configured() {
-            entries.push(label.to_string());
-        }
-    }
-    entries.join(", ")
 }

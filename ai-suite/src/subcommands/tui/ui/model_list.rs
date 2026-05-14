@@ -13,8 +13,7 @@ use super::theme;
 /// Draw the wide-layout model and routing rail.
 pub(super) fn draw_model_rail(frame: &mut Frame, app: &App, area: Rect) {
     let models = app.models();
-    let enabled_count = models.iter().filter(|model| model.enabled).count();
-    let title = format!("Models {enabled_count}/{} ready", models.len());
+    let title = format!("Models {}/{} ready", models.len(), models.len());
 
     let block = theme::rail_block(app, title);
     let inner = block.inner(area);
@@ -37,41 +36,28 @@ pub(super) fn draw_model_rail(frame: &mut Frame, app: &App, area: Rect) {
     ];
 
     for model in models {
-        let status_label = if model.enabled { "READY" } else { "SETUP" };
-        let status_style = if model.enabled {
-            theme::success_style(app).add_modifier(Modifier::BOLD)
-        } else {
-            theme::warning_style(app).add_modifier(Modifier::BOLD)
-        };
-        let model_style = if model.enabled {
-            theme::body_style(app).add_modifier(Modifier::BOLD)
-        } else {
-            theme::muted_style(app)
-        };
         let pin = if app.is_pinned(model) { " PINNED" } else { "" };
 
         lines.push(Line::from(vec![
-            Span::styled(format!("{status_label:<7}"), status_style),
-            Span::styled(model.provider.label(), theme::label_style(app)),
+            Span::styled(
+                "READY  ",
+                theme::success_style(app).add_modifier(Modifier::BOLD),
+            ),
+            Span::styled("Ollama", theme::label_style(app)),
             Span::styled(pin, theme::chip_accent_style(app)),
         ]));
         lines.push(Line::from(vec![
             Span::styled("        ", theme::body_style(app)),
-            Span::styled(model.name.clone(), model_style),
+            Span::styled(
+                model.name.clone(),
+                theme::body_style(app).add_modifier(Modifier::BOLD),
+            ),
         ]));
 
-        let note = model
-            .disabled_reason
-            .clone()
-            .unwrap_or_else(|| model.strengths.join(", "));
-        let note_style = if model.enabled {
-            theme::muted_style(app)
-        } else {
-            theme::warning_style(app)
-        };
+        let note = model.strengths.join(", ");
         lines.push(Line::from(vec![
             Span::styled("        ", theme::body_style(app)),
-            Span::styled(note, note_style),
+            Span::styled(note, theme::muted_style(app)),
         ]));
         lines.push(Line::from(""));
     }
@@ -83,8 +69,7 @@ pub(super) fn draw_model_rail(frame: &mut Frame, app: &App, area: Rect) {
 /// Draw the medium-layout model ribbon.
 pub(super) fn draw_model_ribbon(frame: &mut Frame, app: &App, area: Rect) {
     let models = app.models();
-    let enabled_count = models.iter().filter(|model| model.enabled).count();
-    let title = format!("Route Deck {enabled_count}/{} online", models.len());
+    let title = format!("Route Deck {}/{} online", models.len(), models.len());
 
     let block = theme::rail_block(app, title);
     let inner = block.inner(area);
@@ -96,14 +81,11 @@ pub(super) fn draw_model_ribbon(frame: &mut Frame, app: &App, area: Rect) {
 
     let mut model_spans = Vec::new();
     for model in models {
-        let style = if model.enabled {
-            theme::success_style(app).add_modifier(Modifier::BOLD)
-        } else {
-            theme::warning_style(app)
-        };
-        let marker = if model.enabled { "READY" } else { "SETUP" };
-        model_spans.push(Span::styled(format!("{marker} "), style));
-        model_spans.push(Span::styled(model.provider.label(), theme::body_style(app)));
+        model_spans.push(Span::styled(
+            "READY ",
+            theme::success_style(app).add_modifier(Modifier::BOLD),
+        ));
+        model_spans.push(Span::styled(model.name.clone(), theme::body_style(app)));
         model_spans.push(Span::styled("  ", theme::body_style(app)));
     }
 

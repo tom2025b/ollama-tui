@@ -7,7 +7,7 @@ pub enum BackendEvent {
     /// One streamed token from the model.
     Token(String),
     /// Response complete. full_text is the assembled response; model_name is
-    /// the router's choice (e.g. "claude-sonnet-4-6").
+    /// the router's choice (e.g. "llama3").
     Done {
         full_text: String,
         model_name: String,

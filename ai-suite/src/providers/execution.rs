@@ -1,10 +1,10 @@
-use crate::providers::{anthropic, ollama, openai, xai};
+use crate::providers::ollama;
 use crate::{
     Result,
-    llm::{ConversationTurn, LanguageModel, Provider},
+    llm::{ConversationTurn, LanguageModel},
 };
 
-/// Provider-neutral request handed to the concrete model backends.
+/// Provider-neutral request handed to the Ollama backend.
 #[derive(Clone, Debug)]
 pub(crate) struct ModelRequest {
     /// Model selected by routing.
@@ -31,55 +31,23 @@ impl ModelRequest {
     }
 
     pub(crate) fn provider_label(&self) -> &'static str {
-        self.model.provider.label()
+        "Ollama"
     }
 }
 
-/// Stream a provider-neutral request through its selected concrete backend.
+/// Stream a request through the Ollama backend.
 pub(crate) async fn stream_model_request<F>(request: &ModelRequest, on_token: F) -> Result<String>
 where
     F: FnMut(String),
 {
     let mut on_token = on_token;
-
-    match &request.model.provider {
-        Provider::Ollama => {
-            ollama::stream(
-                &request.model.name,
-                &request.context,
-                &request.prompt,
-                &mut on_token,
-            )
-            .await
-        }
-        Provider::Anthropic => {
-            anthropic::stream(
-                &request.model.name,
-                &request.context,
-                &request.prompt,
-                &mut on_token,
-            )
-            .await
-        }
-        Provider::OpenAi => {
-            openai::stream(
-                &request.model.name,
-                &request.context,
-                &request.prompt,
-                &mut on_token,
-            )
-            .await
-        }
-        Provider::Xai => {
-            xai::stream(
-                &request.model.name,
-                &request.context,
-                &request.prompt,
-                &mut on_token,
-            )
-            .await
-        }
-    }
+    ollama::stream(
+        &request.model.name,
+        &request.context,
+        &request.prompt,
+        &mut on_token,
+    )
+    .await
 }
 
 #[cfg(test)]

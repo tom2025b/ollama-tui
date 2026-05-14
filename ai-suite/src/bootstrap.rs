@@ -44,8 +44,8 @@ mod tests {
 
     #[test]
     fn fatal_error_line_uses_friendly_error_rendering() {
-        let rendered = fatal_error_line(&crate::Error::missing_api_key("OpenAI", "OPENAI_API_KEY"));
+        let rendered = fatal_error_line(&crate::Error::routing("no model available"));
         assert!(rendered.starts_with("Error: "), "got: {rendered}");
-        assert!(rendered.contains("OPENAI_API_KEY"), "got: {rendered}");
+        assert!(rendered.contains("no model available"), "got: {rendered}");
     }
 }

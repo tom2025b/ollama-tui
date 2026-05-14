@@ -1,6 +1,4 @@
-//! Resolved runtime configuration with source tracking and provider enablement.
-
-use crate::providers::{anthropic, openai, xai};
+//! Resolved runtime configuration with source tracking.
 
 use super::environment::RuntimeEnvironment;
 use super::file_config::FileConfig;
@@ -9,10 +7,6 @@ use super::file_config::FileConfig;
 pub(crate) const FAST_OLLAMA_MODEL_ENV: &str = "OLLAMA_FAST_MODEL";
 
 /// Default fast local model.
-///
-/// This defaults to the same installed Llama 3 tag used by the primary local
-/// fallback, so short prompts work on a fresh setup. Set `OLLAMA_FAST_MODEL` to
-/// a smaller installed model if you want lower latency.
 pub(crate) const DEFAULT_FAST_OLLAMA_MODEL: &str = "llama3:latest";
 
 /// Default number of past user/assistant turns sent to the model.
@@ -118,13 +112,10 @@ impl ContextLimits {
     }
 }
 
-/// Resolved model-selection settings for each provider.
+/// Resolved model-selection settings.
 #[derive(Clone, Debug)]
 pub(crate) struct ModelRuntimeConfig {
     fast_ollama_model: Setting<String>,
-    anthropic: CloudProviderRuntimeConfig,
-    openai: CloudProviderRuntimeConfig,
-    xai: CloudProviderRuntimeConfig,
 }
 
 impl ModelRuntimeConfig {
@@ -139,30 +130,6 @@ impl ModelRuntimeConfig {
                 file.models.ollama_fast_model.as_deref(),
                 DEFAULT_FAST_OLLAMA_MODEL,
             ),
-            anthropic: CloudProviderRuntimeConfig::from_environment_and_file(
-                environment,
-                anthropic::ANTHROPIC_API_KEY_ENV,
-                anthropic::ANTHROPIC_MODEL_ENV,
-                file.models.anthropic_model.as_deref(),
-                anthropic::DEFAULT_ANTHROPIC_MODEL,
-                "Claude",
-            ),
-            openai: CloudProviderRuntimeConfig::from_environment_and_file(
-                environment,
-                openai::OPENAI_API_KEY_ENV,
-                openai::OPENAI_MODEL_ENV,
-                file.models.openai_model.as_deref(),
-                openai::DEFAULT_OPENAI_MODEL,
-                "GPT-4o",
-            ),
-            xai: CloudProviderRuntimeConfig::from_environment_and_file(
-                environment,
-                xai::XAI_API_KEY_ENV,
-                xai::XAI_MODEL_ENV,
-                file.models.xai_model.as_deref(),
-                xai::DEFAULT_XAI_MODEL,
-                "Grok",
-            ),
         }
     }
 
@@ -173,66 +140,9 @@ impl ModelRuntimeConfig {
     pub(crate) fn fast_ollama_model_setting(&self) -> &Setting<String> {
         &self.fast_ollama_model
     }
-
-    pub(crate) fn anthropic(&self) -> &CloudProviderRuntimeConfig {
-        &self.anthropic
-    }
-
-    pub(crate) fn openai(&self) -> &CloudProviderRuntimeConfig {
-        &self.openai
-    }
-
-    pub(crate) fn xai(&self) -> &CloudProviderRuntimeConfig {
-        &self.xai
-    }
 }
 
-/// Runtime state for one cloud provider's model choice and availability.
-#[derive(Clone, Debug)]
-pub(crate) struct CloudProviderRuntimeConfig {
-    model: Setting<String>,
-    configured: bool,
-    missing_configuration_reason: String,
-}
-
-impl CloudProviderRuntimeConfig {
-    fn from_environment_and_file<E>(
-        environment: &E,
-        api_key_env: &'static str,
-        model_env: &'static str,
-        file_model: Option<&str>,
-        default_model: &'static str,
-        provider_label: &'static str,
-    ) -> Self
-    where
-        E: RuntimeEnvironment + ?Sized,
-    {
-        Self {
-            model: resolve_string(environment, model_env, file_model, default_model),
-            configured: env_value(environment, api_key_env).is_some(),
-            missing_configuration_reason: format!("set {api_key_env} to enable {provider_label}"),
-        }
-    }
-
-    pub(crate) fn model_name(&self) -> &str {
-        self.model.value()
-    }
-
-    pub(crate) fn model_setting(&self) -> &Setting<String> {
-        &self.model
-    }
-
-    pub(crate) fn configured(&self) -> bool {
-        self.configured
-    }
-
-    pub(crate) fn missing_configuration_reason(&self) -> &str {
-        &self.missing_configuration_reason
-    }
-}
-
-/// Read an env var, treating empty strings as unset (so an accidental
-/// `export FOO=` doesn't clobber file/default values).
+/// Read an env var, treating empty strings as unset.
 fn env_value<E>(environment: &E, key: &'static str) -> Option<String>
 where
     E: RuntimeEnvironment + ?Sized,
@@ -272,7 +182,6 @@ where
 }
 
 /// Resolve a numeric setting with priority: file > default.
-/// (No env-var path today; numeric overrides go in the config file.)
 fn resolve_usize(file_value: Option<usize>, default: usize) -> Setting<usize> {
     match file_value {
         Some(value) => Setting {

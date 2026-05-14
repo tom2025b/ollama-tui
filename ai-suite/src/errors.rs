@@ -57,15 +57,6 @@ pub enum Error {
         source: VarError,
     },
 
-    /// A cloud provider requires an API key that is not configured.
-    #[error("{provider} backend requires the `{env_var}` environment variable")]
-    MissingApiKey {
-        /// Human-readable provider name.
-        provider: &'static str,
-        /// Environment variable that must be exported.
-        env_var: &'static str,
-    },
-
     /// Building the HTTP client for a provider failed.
     #[error("failed to build {provider} HTTP client: {source}")]
     HttpClientBuild {
@@ -223,11 +214,6 @@ impl Error {
     /// Build an environment-variable error with the variable name attached.
     pub fn env_var(name: &'static str, source: VarError) -> Self {
         Self::EnvVar { name, source }
-    }
-
-    /// Build a missing-provider-key error.
-    pub fn missing_api_key(provider: &'static str, env_var: &'static str) -> Self {
-        Self::MissingApiKey { provider, env_var }
     }
 
     /// Build an HTTP-client construction error for a provider.
@@ -418,35 +404,6 @@ fn classify(chain: &str) -> Option<String> {
                 .into(),
         );
     }
-    if chain.contains("failed to contact anthropic") {
-        return Some(
-            "Can't reach Anthropic right now. Check your internet connection and try again.".into(),
-        );
-    }
-    if chain.contains("failed to contact openai") {
-        return Some(
-            "Can't reach OpenAI right now. Check your internet connection and try again.".into(),
-        );
-    }
-    if chain.contains("failed to contact xai") {
-        return Some(
-            "Can't reach xAI right now. Check your internet connection and try again.".into(),
-        );
-    }
-
-    // --- Missing API keys -------------------------------------------------
-    if let Some(env_var) = detect_missing_api_key(chain) {
-        let provider = match env_var {
-            "ANTHROPIC_API_KEY" => "Claude",
-            "OPENAI_API_KEY" => "GPT",
-            "XAI_API_KEY" => "Grok",
-            _ => "this provider",
-        };
-        return Some(format!(
-            "{env_var} is not set, so {provider} can't be used. Export it (e.g. `export {env_var}=...`) and try again. The router will fall back to local Ollama if available."
-        ));
-    }
-
     // --- HTTP status codes from any provider -----------------------------
     if let Some(provider) = detect_provider_with_http(chain, &["401", "403"]) {
         return Some(format!(
@@ -512,36 +469,16 @@ fn classify(chain: &str) -> Option<String> {
     None
 }
 
-fn detect_missing_api_key(chain: &str) -> Option<&'static str> {
-    for env_var in ["ANTHROPIC_API_KEY", "OPENAI_API_KEY", "XAI_API_KEY"] {
-        let needle = env_var.to_lowercase();
-        if chain.contains(&needle)
-            && (chain.contains("environment variable") || chain.contains("not set"))
-        {
-            return Some(env_var);
-        }
-    }
-    None
-}
-
 fn detect_provider_with_http(chain: &str, codes: &[&str]) -> Option<&'static str> {
-    let provider = if chain.contains("anthropic") {
-        "Anthropic"
-    } else if chain.contains("openai") {
-        "OpenAI"
-    } else if chain.contains("xai") {
-        "xAI"
-    } else if chain.contains("ollama") {
-        "Ollama"
-    } else {
+    if !chain.contains("ollama") {
         return None;
-    };
+    }
 
     let mentions_code = codes
         .iter()
         .any(|code| chain.contains(&format!("http {code}")));
 
-    mentions_code.then_some(provider)
+    mentions_code.then_some("Ollama")
 }
 
 #[cfg(test)]
@@ -609,26 +546,6 @@ mod tests {
     }
 
     #[test]
-    fn translates_missing_api_key() {
-        let e = TestError::with_source(
-            "Anthropic backend requires the `ANTHROPIC_API_KEY` environment variable",
-            err("environment variable not found"),
-        );
-        let out = classify_of(&e).expect("should classify");
-        assert!(out.contains("ANTHROPIC_API_KEY"), "got: {out}");
-        assert!(out.contains("Claude"), "got: {out}");
-    }
-
-    #[test]
-    fn translates_http_401_for_openai() {
-        let e =
-            err("OpenAI returned HTTP 401 Unauthorized. Response body: {\"error\":\"bad key\"}");
-        let out = classify_of(&e).expect("should classify");
-        assert!(out.contains("OpenAI"), "got: {out}");
-        assert!(out.contains("rejected"), "got: {out}");
-    }
-
-    #[test]
     fn translates_ollama_missing_model() {
         let e = err(
             "Ollama model `phi3` is not installed. Installed models: llama3:latest. Run `ollama pull phi3`.",
@@ -638,16 +555,16 @@ mod tests {
     }
 
     #[test]
-    fn translates_rate_limit() {
-        let e = err("xAI returned HTTP 429 Too Many Requests. Response body: ...");
+    fn translates_ollama_rate_limit() {
+        let e = err("Ollama returned HTTP 429 Too Many Requests. Response body: ...");
         let out = classify_of(&e).expect("should classify");
         assert!(out.contains("rate-limited"), "got: {out}");
-        assert!(out.contains("xAI"), "got: {out}");
+        assert!(out.contains("Ollama"), "got: {out}");
     }
 
     #[test]
     fn translates_context_window_overflow() {
-        let e = err("openai returned: maximum context length is 8192 tokens");
+        let e = err("context length exceeded: maximum context is 8192 tokens");
         let out = classify_of(&e).expect("should classify");
         assert!(
             out.contains("/clear") || out.contains("too long"),
@@ -670,18 +587,10 @@ mod tests {
     }
 
     #[test]
-    fn typed_missing_api_key_is_rendered() {
-        let e = Error::missing_api_key("OpenAI", "OPENAI_API_KEY");
+    fn typed_http_status_for_ollama_is_classified() {
+        let e = Error::http_status("Ollama", StatusCode::UNAUTHORIZED, "bad key");
         let out = friendly_error(&e);
-        assert!(out.contains("OPENAI_API_KEY"), "got: {out}");
-        assert!(out.contains("GPT"), "got: {out}");
-    }
-
-    #[test]
-    fn typed_http_status_is_classified() {
-        let e = Error::http_status("OpenAI", StatusCode::UNAUTHORIZED, "bad key");
-        let out = friendly_error(&e);
-        assert!(out.contains("OpenAI"), "got: {out}");
+        assert!(out.contains("Ollama"), "got: {out}");
         assert!(out.contains("rejected"), "got: {out}");
     }
 }

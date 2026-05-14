@@ -8,7 +8,7 @@ mod paths;
 
 #[cfg(test)]
 pub(crate) use config::DEFAULT_FAST_OLLAMA_MODEL;
-pub(crate) use config::{CloudProviderRuntimeConfig, ModelRuntimeConfig, RuntimeConfig};
+pub(crate) use config::{ModelRuntimeConfig, RuntimeConfig};
 pub(crate) use file_config::default_config_template;
 pub(crate) use paths::RuntimePaths;
 

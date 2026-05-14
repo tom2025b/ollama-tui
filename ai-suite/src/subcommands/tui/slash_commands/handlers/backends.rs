@@ -1,6 +1,4 @@
-use crate::llm::Provider;
 use crate::subcommands::tui::app::App;
-
 use crate::subcommands::tui::slash_commands::parser::ParsedCommand;
 
 pub fn backends_command(app: &mut App, command: &ParsedCommand) {
@@ -10,44 +8,13 @@ pub fn backends_command(app: &mut App, command: &ParsedCommand) {
 }
 
 fn backends_report(app: &App) -> String {
-    [
-        Provider::Ollama,
-        Provider::Anthropic,
-        Provider::OpenAi,
-        Provider::Xai,
-    ]
-    .iter()
-    .map(|provider| {
-        let models = app
-            .models()
-            .iter()
-            .filter(|model| model.provider == *provider)
-            .collect::<Vec<_>>();
-        let enabled_count = models.iter().filter(|model| model.enabled).count();
-        let status = if enabled_count > 0 {
-            "available"
-        } else {
-            "not configured"
-        };
-        let notes = models
-            .iter()
-            .filter_map(|model| model.disabled_reason.as_deref())
-            .collect::<Vec<_>>();
-        let note = if notes.is_empty() {
-            "ready".to_string()
-        } else {
-            notes.join("; ")
-        };
+    let models = app.models();
+    let count = models.len();
+    let names: Vec<&str> = models.iter().map(|m| m.name.as_str()).collect();
 
-        format!(
-            "{}: {} ({}/{}) - {}",
-            provider.label(),
-            status,
-            enabled_count,
-            models.len(),
-            note
-        )
-    })
-    .collect::<Vec<_>>()
-    .join("\n")
+    format!(
+        "Ollama: available ({count} model{s})\n  {list}",
+        s = if count == 1 { "" } else { "s" },
+        list = names.join(", ")
+    )
 }

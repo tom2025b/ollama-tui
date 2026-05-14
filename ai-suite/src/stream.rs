@@ -2,7 +2,7 @@ use crate::providers::execution::{ModelRequest, stream_model_request};
 use crate::routing::{ModelRouter, Router};
 use crate::{
     Error, Result,
-    llm::{ConversationTurn, LanguageModel, Provider},
+    llm::{ConversationTurn, LanguageModel},
 };
 
 /// Model details safe for GUI and other public callers to display.
@@ -72,48 +72,22 @@ fn router_from_runtime() -> ModelRouter {
 
 fn model_info_for(model: &LanguageModel) -> ModelInfo {
     ModelInfo {
-        id: model_id_for(model),
-        provider: model.provider.label().to_string(),
+        id: format!("ollama:{}", model.name),
+        provider: "Ollama".to_string(),
         name: model.name.clone(),
         label: model.display_label(),
         strengths: model.strengths.clone(),
-        enabled: model.enabled,
-        disabled_reason: model.disabled_reason.clone(),
-    }
-}
-
-fn model_id_for(model: &LanguageModel) -> String {
-    format!("{}:{}", provider_id(&model.provider), model.name)
-}
-
-fn provider_id(provider: &Provider) -> &'static str {
-    match provider {
-        Provider::Ollama => "ollama",
-        Provider::Anthropic => "anthropic",
-        Provider::OpenAi => "openai",
-        Provider::Xai => "xai",
+        enabled: true,
+        disabled_reason: None,
     }
 }
 
 fn select_model_by_id(models: &[LanguageModel], model_id: &str) -> Result<LanguageModel> {
-    let model = models
+    models
         .iter()
-        .find(|model| model_id_for(model) == model_id)
+        .find(|model| format!("ollama:{}", model.name) == model_id)
         .cloned()
-        .ok_or_else(|| Error::validation(format!("unknown model selection: {model_id}")))?;
-
-    if !model.enabled {
-        let reason = model
-            .disabled_reason
-            .clone()
-            .unwrap_or_else(|| "model is disabled".to_string());
-        return Err(Error::validation(format!(
-            "{} is unavailable: {reason}",
-            model.display_label()
-        )));
-    }
-
-    Ok(model)
+        .ok_or_else(|| Error::validation(format!("unknown model selection: {model_id}")))
 }
 
 fn format_route_prompt(explanation: Result<crate::routing::RouteExplanation>) -> String {
@@ -142,27 +116,6 @@ mod tests {
                     "got: {message}"
                 );
                 assert!(message.contains("ollama:missing"), "got: {message}");
-            }
-            other => panic!("expected Validation error, got {other:?}"),
-        }
-    }
-
-    #[test]
-    fn select_model_by_id_rejects_disabled_model() {
-        let models = vec![LanguageModel::openai(
-            "gpt-4o",
-            &["test"],
-            false,
-            Some("missing key".to_string()),
-        )];
-
-        let error =
-            select_model_by_id(&models, "openai:gpt-4o").expect_err("disabled model should fail");
-
-        match error {
-            Error::Validation { message } => {
-                assert!(message.contains("OpenAI gpt-4o"), "got: {message}");
-                assert!(message.contains("missing key"), "got: {message}");
             }
             other => panic!("expected Validation error, got {other:?}"),
         }

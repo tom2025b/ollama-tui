@@ -20,13 +20,10 @@ pub(crate) struct FileConfig {
     pub(crate) context: ContextSection,
 }
 
-/// `[models]` section — default model name overrides per provider.
+/// `[models]` section — model name overrides.
 #[derive(Clone, Debug, Default, Deserialize)]
 pub(crate) struct ModelsSection {
     pub(crate) ollama_fast_model: Option<String>,
-    pub(crate) anthropic_model: Option<String>,
-    pub(crate) openai_model: Option<String>,
-    pub(crate) xai_model: Option<String>,
 }
 
 /// `[context]` section — conversation memory bounds.
@@ -38,8 +35,7 @@ pub(crate) struct ContextSection {
     pub(crate) stored_turns: Option<usize>,
 }
 
-/// Result of attempting to load the file config: always returns *some* config
-/// (defaults on error), plus warnings for the user.
+/// Result of attempting to load the file config.
 #[derive(Debug)]
 pub(crate) struct LoadedFileConfig {
     pub(crate) config: FileConfig,
@@ -48,9 +44,7 @@ pub(crate) struct LoadedFileConfig {
 }
 
 impl LoadedFileConfig {
-    /// Read the config file at `path` if it exists. A missing file is silent
-    /// (returns defaults, no warnings). I/O errors and parse errors become
-    /// warnings; the returned config is the default in those cases.
+    /// Read the config file at `path` if it exists.
     pub(crate) fn read(path: &Path) -> Self {
         match read_config_file(path) {
             Ok(Some(config)) => Self {
@@ -107,18 +101,12 @@ fn warning_for_load_error(path: &Path, error: &Error) -> String {
 pub(crate) fn default_config_template() -> &'static str {
     r#"# ai-suite configuration
 #
-# Every field is optional. Environment variables (e.g. ANTHROPIC_API_KEY,
-# ANTHROPIC_MODEL, OPENAI_MODEL) always take priority over values here.
-# Delete or comment out anything you don't want to override.
+# Every field is optional. Environment variables always take priority over
+# values here. Delete or comment out anything you don't want to override.
 
 [models]
 # Small, fast local Ollama model used for short prompts.
 # ollama_fast_model = "llama3:latest"
-
-# Default cloud model names (used when the matching API key is set).
-# anthropic_model = "claude-sonnet-4-5"
-# openai_model    = "gpt-4o-mini"
-# xai_model       = "grok-2-latest"
 
 [context]
 # How many past user/assistant turns to send to the model on each request.
@@ -156,7 +144,7 @@ mod tests {
         let result = LoadedFileConfig::read(Path::new("/definitely/not/here/config.toml"));
         assert!(result.warnings.is_empty());
         assert!(result.source_path.is_none());
-        assert!(result.config.models.openai_model.is_none());
+        assert!(result.config.models.ollama_fast_model.is_none());
     }
 
     #[test]
@@ -166,7 +154,7 @@ mod tests {
         let _ = std::fs::remove_file(&path);
         assert!(!result.warnings.is_empty());
         assert!(result.warnings[0].contains("malformed"));
-        assert!(result.config.models.openai_model.is_none());
+        assert!(result.config.models.ollama_fast_model.is_none());
     }
 
     #[test]
@@ -174,7 +162,7 @@ mod tests {
         let path = write_temp(
             r#"
 [models]
-openai_model = "gpt-4o"
+ollama_fast_model = "llama3:7b"
 
 [context]
 context_turns = 12
@@ -183,7 +171,10 @@ context_turns = 12
         let result = LoadedFileConfig::read(&path);
         let _ = std::fs::remove_file(&path);
         assert!(result.warnings.is_empty());
-        assert_eq!(result.config.models.openai_model.as_deref(), Some("gpt-4o"));
+        assert_eq!(
+            result.config.models.ollama_fast_model.as_deref(),
+            Some("llama3:7b")
+        );
         assert_eq!(result.config.context.context_turns, Some(12));
         assert_eq!(result.config.context.stored_turns, None);
     }
@@ -207,6 +198,6 @@ context_turns = 12
         let _ = std::fs::remove_dir(&path);
         assert!(!result.warnings.is_empty());
         assert!(result.warnings[0].contains("Could not read config file"));
-        assert!(result.config.models.openai_model.is_none());
+        assert!(result.config.models.ollama_fast_model.is_none());
     }
 }

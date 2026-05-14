@@ -10,12 +10,7 @@ impl App {
 
     /// All models the picker is allowed to offer for pinning.
     pub fn pickable_models(&self) -> Vec<&LanguageModel> {
-        self.routing
-            .router
-            .models()
-            .iter()
-            .filter(|model| model.enabled)
-            .collect()
+        self.routing.router.models().iter().collect()
     }
 
     /// Total number of rows shown by the picker, including the leading "Auto".
@@ -116,11 +111,6 @@ impl App {
             return Err(format!("No model named `{name}`. Available: {installed}."));
         };
 
-        if !chosen.enabled {
-            let reason = chosen.disabled_reason.as_deref().unwrap_or("not available");
-            return Err(format!("Model `{name}` is not available: {reason}."));
-        }
-
         let chosen = chosen.clone();
         let label = chosen.display_label();
         self.routing.pinned_model = Some(chosen);
@@ -150,5 +140,5 @@ impl App {
 }
 
 fn same_model(left: &LanguageModel, right: &LanguageModel) -> bool {
-    left.provider == right.provider && left.name == right.name
+    left.name == right.name
 }

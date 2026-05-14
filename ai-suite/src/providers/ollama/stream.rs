@@ -1,6 +1,7 @@
+use anyhow::anyhow;
 use serde::Deserialize;
 
-use crate::{Error, Result};
+use crate::Result;
 
 /// Process complete newline-delimited JSON records currently in the stream buffer.
 pub(super) fn process_ollama_stream_buffer<F>(
@@ -39,7 +40,6 @@ where
 }
 
 /// Parse one Ollama streaming JSON line and emit its content delta.
-#[cfg_attr(not(test), allow(dead_code))]
 pub(super) fn process_ollama_stream_line<F>(
     line: &str,
     answer: &mut String,
@@ -52,12 +52,8 @@ where
         return Ok(());
     }
 
-    let chunk = serde_json::from_str::<ChatStreamChunk>(line).map_err(|source| {
-        Error::provider_response(
-            "Ollama",
-            format!("invalid stream line: {source}. Line: {line}"),
-        )
-    })?;
+    let chunk = serde_json::from_str::<ChatStreamChunk>(line)
+        .map_err(|e| anyhow!("Ollama returned an invalid response: invalid stream line: {e}. Line: {line}"))?;
 
     if let Some(message) = chunk.message
         && !message.content.is_empty()
@@ -72,10 +68,7 @@ where
 /// One JSON line from Ollama's streaming chat endpoint.
 #[derive(Debug, Deserialize)]
 struct ChatStreamChunk {
-    /// Assistant message delta for this chunk.
     message: Option<OllamaChatResponseMessage>,
-    /// True when Ollama has finished the response.
-    #[serde(default)]
     #[allow(dead_code)]
     done: bool,
 }
@@ -83,6 +76,5 @@ struct ChatStreamChunk {
 /// Assistant message object inside a streaming chat chunk.
 #[derive(Debug, Deserialize)]
 struct OllamaChatResponseMessage {
-    /// Delta content for this chunk.
     content: String,
 }

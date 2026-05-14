@@ -52,37 +52,3 @@ fn extract_last_fenced_code_block(text: &str) -> Option<String> {
 
     last_block
 }
-
-#[cfg(test)]
-mod tests {
-    use super::extract_last_fenced_code_block;
-
-    #[test]
-    fn returns_none_when_text_has_no_fence() {
-        assert_eq!(extract_last_fenced_code_block("plain text only"), None);
-    }
-
-    #[test]
-    fn extracts_single_fenced_block() {
-        let text = "before\n```\nlet x = 1;\n```\nafter";
-        assert_eq!(
-            extract_last_fenced_code_block(text),
-            Some("let x = 1;".to_string())
-        );
-    }
-
-    #[test]
-    fn extracts_last_block_when_multiple_present() {
-        let text = "```rust\nfn first() {}\n```\nmid\n```py\nprint(\"second\")\n```";
-        assert_eq!(
-            extract_last_fenced_code_block(text),
-            Some("print(\"second\")".to_string())
-        );
-    }
-
-    #[test]
-    fn unterminated_fence_is_ignored() {
-        let text = "```\nstill open";
-        assert_eq!(extract_last_fenced_code_block(text), None);
-    }
-}

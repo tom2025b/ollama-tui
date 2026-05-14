@@ -3,7 +3,9 @@
 
 use std::{ffi::OsString, path::PathBuf};
 
-use crate::{Error, Result};
+use anyhow::Context;
+
+use crate::Result;
 
 /// Process-level inputs needed to resolve runtime paths and config.
 pub(crate) trait RuntimeEnvironment {
@@ -33,6 +35,6 @@ impl RuntimeEnvironment for ProcessEnvironment {
 
     fn current_dir(&self) -> Result<PathBuf> {
         std::env::current_dir()
-            .map_err(|source| Error::io_operation("resolve current working directory", source))
+            .context("failed to resolve current working directory")
     }
 }

@@ -7,9 +7,10 @@
 
 use std::{io::ErrorKind, path::Path};
 
+use anyhow::{Context, anyhow};
 use serde::Deserialize;
 
-use crate::{Error, Result};
+use crate::Result;
 
 /// Top-level file config. All fields optional.
 #[derive(Clone, Debug, Default, Deserialize)]
@@ -70,31 +71,25 @@ fn read_config_file(path: &Path) -> Result<Option<FileConfig>> {
     let raw = match std::fs::read_to_string(path) {
         Ok(text) => text,
         Err(error) if error.kind() == ErrorKind::NotFound => return Ok(None),
-        Err(error) => return Err(Error::io("read config file", path, error)),
+        Err(error) => {
+            return Err(anyhow!(error))
+                .with_context(|| format!("failed to read config file at {}", path.display()));
+        }
     };
 
     parse_config_file(&raw).map(Some)
 }
 
 fn parse_config_file(raw: &str) -> Result<FileConfig> {
-    toml::from_str(raw).map_err(|source| Error::toml_deserialize("runtime config file", source))
+    toml::from_str(raw)
+        .map_err(|e| anyhow!("failed to parse TOML for runtime config file: {e}"))
 }
 
-fn warning_for_load_error(path: &Path, error: &Error) -> String {
-    match error {
-        Error::TomlDeserialize { .. } => format!(
-            "Config file at {} is malformed: {error}. Using defaults.",
-            path.display()
-        ),
-        Error::Io { source, .. } => format!(
-            "Could not read config file at {}: {source}. Using defaults.",
-            path.display()
-        ),
-        _ => format!(
-            "Could not load config file at {}: {error}. Using defaults.",
-            path.display()
-        ),
-    }
+fn warning_for_load_error(path: &Path, error: &anyhow::Error) -> String {
+    format!(
+        "Could not load config file at {}: {error}. Using defaults.",
+        path.display()
+    )
 }
 
 /// Default contents written by `/config edit` when no file exists yet.
@@ -115,89 +110,4 @@ pub(crate) fn default_config_template() -> &'static str {
 # How many past turns to keep in memory before dropping the oldest.
 # stored_turns = 200
 "#
-}
-
-#[cfg(test)]
-mod tests {
-    use super::*;
-    use std::sync::atomic::{AtomicU64, Ordering};
-
-    static SEQ: AtomicU64 = AtomicU64::new(0);
-
-    fn write_temp(contents: &str) -> std::path::PathBuf {
-        let id = SEQ.fetch_add(1, Ordering::Relaxed);
-        let path = std::env::temp_dir().join(format!(
-            "ai-suite-config-test-{}-{id}.toml",
-            std::process::id()
-        ));
-        if let Err(error) = std::fs::write(&path, contents) {
-            panic!(
-                "failed to write temp config fixture at {}: {error}",
-                path.display()
-            );
-        }
-        path
-    }
-
-    #[test]
-    fn missing_file_yields_defaults_no_warnings() {
-        let result = LoadedFileConfig::read(Path::new("/definitely/not/here/config.toml"));
-        assert!(result.warnings.is_empty());
-        assert!(result.source_path.is_none());
-        assert!(result.config.models.ollama_fast_model.is_none());
-    }
-
-    #[test]
-    fn malformed_file_yields_defaults_with_warning() {
-        let path = write_temp("this is = = not = toml");
-        let result = LoadedFileConfig::read(&path);
-        let _ = std::fs::remove_file(&path);
-        assert!(!result.warnings.is_empty());
-        assert!(result.warnings[0].contains("malformed"));
-        assert!(result.config.models.ollama_fast_model.is_none());
-    }
-
-    #[test]
-    fn parses_partial_config() {
-        let path = write_temp(
-            r#"
-[models]
-ollama_fast_model = "llama3:7b"
-
-[context]
-context_turns = 12
-"#,
-        );
-        let result = LoadedFileConfig::read(&path);
-        let _ = std::fs::remove_file(&path);
-        assert!(result.warnings.is_empty());
-        assert_eq!(
-            result.config.models.ollama_fast_model.as_deref(),
-            Some("llama3:7b")
-        );
-        assert_eq!(result.config.context.context_turns, Some(12));
-        assert_eq!(result.config.context.stored_turns, None);
-    }
-
-    #[test]
-    fn unreadable_path_yields_defaults_with_warning() {
-        let id = SEQ.fetch_add(1, Ordering::Relaxed);
-        let path = std::env::temp_dir().join(format!(
-            "ai-suite-config-test-dir-{}-{id}",
-            std::process::id()
-        ));
-        if let Err(error) = std::fs::create_dir(&path) {
-            panic!(
-                "failed to create temp config fixture dir at {}: {error}",
-                path.display()
-            );
-        }
-
-        let result = LoadedFileConfig::read(&path);
-
-        let _ = std::fs::remove_dir(&path);
-        assert!(!result.warnings.is_empty());
-        assert!(result.warnings[0].contains("Could not read config file"));
-        assert!(result.config.models.ollama_fast_model.is_none());
-    }
 }

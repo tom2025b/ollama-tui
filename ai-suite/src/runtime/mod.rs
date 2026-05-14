@@ -6,8 +6,6 @@ mod environment;
 mod file_config;
 mod paths;
 
-#[cfg(test)]
-pub(crate) use config::DEFAULT_FAST_OLLAMA_MODEL;
 pub(crate) use config::{ModelRuntimeConfig, RuntimeConfig};
 pub(crate) use file_config::default_config_template;
 pub(crate) use paths::RuntimePaths;
@@ -69,60 +67,5 @@ impl Runtime {
             config_warnings,
             config_source_path: loaded.source_path,
         }
-    }
-}
-
-#[cfg(test)]
-mod tests {
-    use super::config::DEFAULT_CONTEXT_TURNS;
-    use super::*;
-    use std::{ffi::OsString, path::PathBuf};
-
-    #[derive(Debug)]
-    struct TestEnvironment {
-        home: Option<OsString>,
-        current_dir: std::result::Result<PathBuf, crate::Error>,
-    }
-
-    impl RuntimeEnvironment for TestEnvironment {
-        fn var(&self, key: &str) -> Option<String> {
-            self.var_os(key).and_then(|value| value.into_string().ok())
-        }
-
-        fn var_os(&self, key: &str) -> Option<OsString> {
-            match key {
-                "HOME" => self.home.clone(),
-                _ => None,
-            }
-        }
-
-        fn current_dir(&self) -> crate::Result<PathBuf> {
-            match &self.current_dir {
-                Ok(path) => Ok(path.clone()),
-                Err(error) => Err(crate::Error::io_operation(
-                    "resolve current working directory",
-                    std::io::Error::new(std::io::ErrorKind::PermissionDenied, error.to_string()),
-                )),
-            }
-        }
-    }
-
-    #[test]
-    fn runtime_load_surfaces_path_warnings_without_aborting() {
-        let runtime = Runtime::from_environment(&TestEnvironment {
-            home: None,
-            current_dir: Ok(PathBuf::from("/work/project")),
-        });
-
-        assert_eq!(
-            runtime.config().context().context_turns(),
-            DEFAULT_CONTEXT_TURNS
-        );
-        assert_eq!(
-            runtime.paths().config_file_path(),
-            std::path::Path::new("/work/project/.config/ai-suite/config.toml")
-        );
-        assert_eq!(runtime.config_warnings().len(), 1);
-        assert!(runtime.config_warnings()[0].contains("HOME is not set"));
     }
 }

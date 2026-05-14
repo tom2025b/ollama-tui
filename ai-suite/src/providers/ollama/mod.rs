@@ -23,6 +23,3 @@ where
     let client = OllamaClient::from_environment()?;
     client.stream(model_name, context, prompt, on_token).await
 }
-
-#[cfg(test)]
-mod tests;

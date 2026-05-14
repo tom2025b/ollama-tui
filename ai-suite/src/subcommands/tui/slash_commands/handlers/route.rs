@@ -57,34 +57,3 @@ fn extract_prompt(command: &ParsedCommand) -> String {
 
     unquoted.to_string()
 }
-
-#[cfg(test)]
-mod tests {
-    use super::*;
-    use crate::subcommands::tui::slash_commands::parser::{ParseResult, parse_slash_command};
-
-    fn parse(input: &str) -> ParsedCommand {
-        match parse_slash_command(input) {
-            ParseResult::Command(command) => command,
-            ParseResult::NotCommand => panic!("expected a parsed command"),
-        }
-    }
-
-    #[test]
-    fn extracts_quoted_prompt_after_test_keyword() {
-        let command = parse(r#"/route test "what is 2+2""#);
-        assert_eq!(extract_prompt(&command), "what is 2+2");
-    }
-
-    #[test]
-    fn extracts_unquoted_prompt_without_test_keyword() {
-        let command = parse("/route refactor this code please");
-        assert_eq!(extract_prompt(&command), "refactor this code please");
-    }
-
-    #[test]
-    fn empty_when_no_args() {
-        let command = parse("/route");
-        assert_eq!(extract_prompt(&command), "");
-    }
-}

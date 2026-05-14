@@ -3,13 +3,15 @@ use std::{
     path::{Path, PathBuf},
 };
 
+use anyhow::Context;
+
 use super::{
     content::{RuleSection, active_section},
     storage::{RulesFile, default_rules_template, read_optional_rules, warning_for_load_error},
     target::RulesTarget,
 };
 use crate::runtime::RuntimePaths;
-use crate::{Error, Result};
+use crate::Result;
 
 /// Loaded rules and the paths where they live.
 #[derive(Clone, Debug)]
@@ -79,12 +81,14 @@ impl RulesState {
         };
 
         if let Some(parent) = path.parent() {
-            fs::create_dir_all(parent)
-                .map_err(|source| Error::io("create rules parent directory", parent, source))?;
+            fs::create_dir_all(parent).with_context(|| {
+                format!("failed to create rules directory at {}", parent.display())
+            })?;
         }
         if !path.exists() {
-            fs::write(&path, default_rules_template(target))
-                .map_err(|source| Error::io("write default rules file", &path, source))?;
+            fs::write(&path, default_rules_template(target)).with_context(|| {
+                format!("failed to write default rules file at {}", path.display())
+            })?;
         }
 
         Ok(path)

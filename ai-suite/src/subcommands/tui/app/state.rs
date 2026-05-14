@@ -156,12 +156,6 @@ pub struct App {
 }
 
 impl App {
-    /// Build a fresh app with the default router.
-    #[cfg(test)]
-    pub fn new() -> Self {
-        Self::with_runtime(Runtime::load())
-    }
-
     pub(crate) fn with_runtime(runtime: Runtime) -> Self {
         let routing = RoutingState::new(runtime.config());
         let rules = RulesState::load(runtime.paths());

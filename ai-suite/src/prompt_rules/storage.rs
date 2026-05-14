@@ -4,9 +4,11 @@ use std::{
     path::{Path, PathBuf},
 };
 
+use anyhow::{Context, anyhow};
+
 use super::content::active_rule_content;
 use super::target::RulesTarget;
-use crate::{Error, Result};
+use crate::Result;
 
 /// Raw contents of one rules file on disk.
 #[derive(Clone, Debug)]
@@ -25,22 +27,18 @@ pub(super) fn read_optional_rules(path: &Path) -> Result<Option<RulesFile>> {
             raw_content,
         })),
         Err(error) if error.kind() == ErrorKind::NotFound => Ok(None),
-        Err(error) => Err(Error::io("read rules file", path, error)),
+        Err(error) => Err(anyhow!(error)).with_context(|| {
+            format!("I/O error while reading rules file at {}", path.display())
+        }),
     }
 }
 
 /// User-facing warning emitted when a rules file could not be loaded.
-pub(super) fn warning_for_load_error(path: &Path, error: &Error) -> String {
-    match error {
-        Error::Io { source, .. } => format!(
-            "Could not read rules file at {}: {source}. Ignoring this rules file.",
-            path.display()
-        ),
-        _ => format!(
-            "Could not load rules file at {}: {error}. Ignoring this rules file.",
-            path.display()
-        ),
-    }
+pub(super) fn warning_for_load_error(path: &Path, error: &anyhow::Error) -> String {
+    format!(
+        "Could not read rules file at {}: {error}. Ignoring this rules file.",
+        path.display()
+    )
 }
 
 /// Human-readable state for `/rules show`.

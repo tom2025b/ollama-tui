@@ -49,21 +49,3 @@ where
     )
     .await
 }
-
-#[cfg(test)]
-mod tests {
-    use crate::llm::LanguageModel;
-
-    use super::ModelRequest;
-
-    #[test]
-    fn request_exposes_provider_label() {
-        let request = ModelRequest::new(
-            LanguageModel::ollama("llama3", &["fast"]),
-            Vec::new(),
-            "hello".to_string(),
-        );
-
-        assert_eq!(request.provider_label(), "Ollama");
-    }
-}

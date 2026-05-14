@@ -14,4 +14,5 @@ path = "src/bin/ai.rs"
 [dependencies]
 ai-suite     = { path = "../ai-suite" }
 ai-suite-gui = { path = "../ai-suite-gui" }
+anyhow       = "1"
 tokio        = { version = "1", features = ["rt-multi-thread"] }

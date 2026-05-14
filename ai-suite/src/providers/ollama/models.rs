@@ -1,6 +1,7 @@
+use anyhow::anyhow;
 use serde::Deserialize;
 
-use crate::{Error, Result};
+use crate::Result;
 
 /// Response body from Ollama's `/api/tags` endpoint.
 #[derive(Debug, Deserialize)]
@@ -46,18 +47,12 @@ pub(super) fn ensure_model_name_is_available(
         .join(", ");
 
     if installed_names.is_empty() {
-        return Err(Error::provider_response(
-            "Ollama",
-            format!(
-                "Ollama is running, but no local models are installed. Run `ollama pull {requested_model}`."
-            ),
+        return Err(anyhow!(
+            "Ollama is running, but no local models are installed. Run `ollama pull {requested_model}`."
         ));
     }
 
-    Err(Error::provider_response(
-        "Ollama",
-        format!(
-            "Ollama model `{requested_model}` is not installed. Installed models: {installed_names}. Run `ollama pull {requested_model}`."
-        ),
+    Err(anyhow!(
+        "Ollama model `{requested_model}` is not installed. Installed models: {installed_names}. Run `ollama pull {requested_model}`."
     ))
 }

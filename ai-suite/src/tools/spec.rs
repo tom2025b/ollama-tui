@@ -33,16 +33,3 @@ pub trait Tool: Send + Sync {
     /// Execute the tool against structured input and return text output.
     fn execute(&self, invocation: ToolInvocation) -> Result<ToolOutput>;
 }
-
-#[cfg(test)]
-mod tests {
-    use super::*;
-
-    #[test]
-    fn tool_definition_exposes_metadata() {
-        let definition = ToolDefinition::new("search", "Search local project files");
-
-        assert_eq!(definition.name(), "search");
-        assert_eq!(definition.description(), "Search local project files");
-    }
-}

@@ -1,5 +1,6 @@
 use std::time::Duration;
 
+use anyhow::Context;
 use crossterm::event::{self, Event};
 use tokio::sync::mpsc;
 
@@ -8,12 +9,9 @@ use crate::subcommands::tui::app::{App, ModelEvent};
 use crate::subcommands::tui::external::run_external_action;
 use crate::subcommands::tui::input::handle_key_event;
 use crate::subcommands::tui::terminal::{AppTerminal, start_terminal, stop_terminal};
-use crate::{Error, Result};
+use crate::Result;
 
 /// Start the terminal app.
-///
-/// Tokio is used because talking to models is HTTP work, while terminal input
-/// and drawing stay in one small event loop.
 pub async fn run(runtime: &Runtime) -> Result<()> {
     let mut terminal = start_terminal()?;
     let app_result = run_app(&mut terminal, runtime).await;
@@ -35,12 +33,11 @@ async fn run_app(terminal: &mut AppTerminal, runtime: &Runtime) -> Result<()> {
         app.tick();
         terminal
             .draw(|frame| crate::subcommands::tui::ui::draw(frame, &app))
-            .map_err(|source| Error::io_operation("draw terminal frame", source))?;
+            .context("failed to draw terminal frame")?;
 
-        if event::poll(Duration::from_millis(50))
-            .map_err(|source| Error::io_operation("poll terminal events", source))?
-            && let Event::Key(key_event) = event::read()
-                .map_err(|source| Error::io_operation("read terminal event", source))?
+        if event::poll(Duration::from_millis(50)).context("failed to poll terminal events")?
+            && let Event::Key(key_event) =
+                event::read().context("failed to read terminal event")?
         {
             handle_key_event(key_event, &mut app, model_event_tx.clone());
         }

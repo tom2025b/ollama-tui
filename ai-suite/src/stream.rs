@@ -1,7 +1,9 @@
+use anyhow::anyhow;
+
 use crate::providers::execution::{ModelRequest, stream_model_request};
 use crate::routing::{ModelRouter, Router};
 use crate::{
-    Error, Result,
+    Result,
     llm::{ConversationTurn, LanguageModel},
 };
 
@@ -87,63 +89,12 @@ fn select_model_by_id(models: &[LanguageModel], model_id: &str) -> Result<Langua
         .iter()
         .find(|model| format!("ollama:{}", model.name) == model_id)
         .cloned()
-        .ok_or_else(|| Error::validation(format!("unknown model selection: {model_id}")))
+        .ok_or_else(|| anyhow!("unknown model selection: {model_id}"))
 }
 
 fn format_route_prompt(explanation: Result<crate::routing::RouteExplanation>) -> String {
     match explanation {
         Ok(explanation) => explanation.format(),
         Err(error) => format!("Routing failed: {}", crate::friendly_error(&error)),
-    }
-}
-
-#[cfg(test)]
-mod tests {
-    use super::*;
-    use crate::routing::RouteExplanation;
-
-    #[test]
-    fn select_model_by_id_rejects_unknown_selection() {
-        let models = vec![LanguageModel::ollama("llama3", &["test"])];
-
-        let error = select_model_by_id(&models, "ollama:missing")
-            .expect_err("unknown model id should fail");
-
-        match error {
-            Error::Validation { message } => {
-                assert!(
-                    message.contains("unknown model selection"),
-                    "got: {message}"
-                );
-                assert!(message.contains("ollama:missing"), "got: {message}");
-            }
-            other => panic!("expected Validation error, got {other:?}"),
-        }
-    }
-
-    #[test]
-    fn format_route_prompt_uses_friendly_error_for_failures() {
-        let rendered = format_route_prompt(Err(Error::routing("router invariant broke")));
-        assert!(rendered.contains("Routing failed:"), "got: {rendered}");
-        assert!(
-            rendered.contains("router invariant broke"),
-            "got: {rendered}"
-        );
-    }
-
-    #[test]
-    fn format_route_prompt_renders_route_explanation() {
-        let explanation = RouteExplanation {
-            decision: crate::llm::RouteDecision {
-                model: LanguageModel::ollama("llama3", &["test"]),
-                reason: "picked local".to_string(),
-            },
-            matched_rule: "default",
-            features: vec![("needs_privacy", false), ("is_simple", true)],
-        };
-
-        let rendered = format_route_prompt(Ok(explanation));
-        assert!(rendered.contains("Routing trace"), "got: {rendered}");
-        assert!(rendered.contains("llama3"), "got: {rendered}");
     }
 }

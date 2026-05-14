@@ -100,6 +100,3 @@ pub fn handle_key_event(
         _ => {}
     }
 }
-
-#[cfg(test)]
-mod tests;

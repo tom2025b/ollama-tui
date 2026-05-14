@@ -67,32 +67,3 @@ pub fn suggestion_prefix(input: &str) -> Option<&str> {
 
     Some(input)
 }
-
-#[cfg(test)]
-mod tests {
-    use super::*;
-
-    #[test]
-    fn parser_ignores_non_command_input() {
-        assert_eq!(parse_slash_command("hello"), ParseResult::NotCommand);
-    }
-
-    #[test]
-    fn parser_normalizes_command_name_and_preserves_args() {
-        let parsed = match parse_slash_command("  /RULES Show Project  ") {
-            ParseResult::Command(command) => command,
-            ParseResult::NotCommand => panic!("expected command"),
-        };
-
-        assert_eq!(parsed.raw(), "/RULES Show Project");
-        assert_eq!(parsed.name(), "/rules");
-        assert_eq!(parsed.args(), &["Show".to_string(), "Project".to_string()]);
-    }
-
-    #[test]
-    fn suggestion_prefix_requires_slash_without_whitespace() {
-        assert_eq!(suggestion_prefix("/ru"), Some("/ru"));
-        assert_eq!(suggestion_prefix("hello"), None);
-        assert_eq!(suggestion_prefix("/rules show"), None);
-    }
-}

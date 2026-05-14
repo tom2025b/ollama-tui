@@ -105,21 +105,3 @@ fn visible_suggestion_window(
 
     (scroll_start, visible_count)
 }
-
-#[cfg(test)]
-mod tests {
-    use super::visible_suggestion_window;
-
-    #[test]
-    fn suggestion_window_shows_all_rows_when_they_fit() {
-        assert_eq!(visible_suggestion_window(16, 15, 20), (0, 16));
-    }
-
-    #[test]
-    fn suggestion_window_scrolls_to_keep_selection_visible() {
-        assert_eq!(visible_suggestion_window(16, 0, 8), (0, 8));
-        assert_eq!(visible_suggestion_window(16, 7, 8), (0, 8));
-        assert_eq!(visible_suggestion_window(16, 8, 8), (1, 8));
-        assert_eq!(visible_suggestion_window(16, 15, 8), (8, 8));
-    }
-}

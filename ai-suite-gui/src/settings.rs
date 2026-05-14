@@ -4,7 +4,8 @@ use std::{
     path::{Path, PathBuf},
 };
 
-use ai_suite::{Error, Result, friendly_error};
+use anyhow::{Context, anyhow};
+use ai_suite::{Result, friendly_error};
 
 use crate::app::App;
 
@@ -33,14 +34,15 @@ impl GuiPreferences {
         let path = preferences_path()?;
         let parent = path
             .parent()
-            .ok_or_else(|| Error::invariant("GUI preferences path has no parent directory"))?;
-        fs::create_dir_all(parent)
-            .map_err(|error| Error::io("creating GUI config directory", parent, error))?;
+            .ok_or_else(|| anyhow!("GUI preferences path has no parent directory"))?;
+        fs::create_dir_all(parent).with_context(|| {
+            format!("failed to create GUI config directory at {}", parent.display())
+        })?;
         fs::write(
             path.as_path(),
             format!("text_scale = {:.2}\n", self.text_scale),
         )
-        .map_err(|error| Error::io("writing GUI preferences", path, error))
+        .with_context(|| format!("failed to write GUI preferences at {}", path.display()))
     }
 }
 
@@ -82,14 +84,18 @@ fn load_text_scale() -> Result<Option<f32>> {
     let content = match fs::read_to_string(&path) {
         Ok(content) => content,
         Err(error) if error.kind() == ErrorKind::NotFound => return Ok(None),
-        Err(error) => return Err(Error::io("reading GUI preferences", &path, error)),
+        Err(error) => {
+            return Err(anyhow!(error)).with_context(|| {
+                format!("failed to read GUI preferences at {}", path.display())
+            });
+        }
     };
 
     let value = parse_text_scale(&content).ok_or_else(|| {
-        Error::configuration(format!(
+        anyhow!(
             "GUI preferences at {} contain an invalid `text_scale` value",
             path.display()
-        ))
+        )
     })?;
 
     Ok(Some(value))
@@ -125,7 +131,5 @@ fn preferences_path() -> Result<PathBuf> {
                 .join("ai-suite")
                 .join("gui.toml")
         })
-        .ok_or_else(|| {
-            Error::configuration("could not resolve GUI config path from HOME or XDG_CONFIG_HOME")
-        })
+        .ok_or_else(|| anyhow!("could not resolve GUI config path from HOME or XDG_CONFIG_HOME"))
 }

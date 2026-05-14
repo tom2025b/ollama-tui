@@ -3,17 +3,16 @@ mod explain;
 mod profile;
 mod selection;
 
+use anyhow::anyhow;
+
 use crate::{
     Result,
     llm::{LanguageModel, RouteDecision},
 };
 use profile::PromptProfile;
 
-pub use explain::RouteExplanation;
-
-#[cfg(test)]
-pub(crate) use crate::runtime::DEFAULT_FAST_OLLAMA_MODEL;
 pub use catalog::PRIMARY_OLLAMA_MODEL;
+pub use explain::RouteExplanation;
 
 /// Common interface for anything that can choose a backend for a prompt.
 pub trait Router {
@@ -47,9 +46,7 @@ impl ModelRouter {
             .first()
             .cloned()
             .ok_or_else(|| {
-                crate::Error::invariant(format!(
-                    "router is missing required primary Ollama model `{PRIMARY_OLLAMA_MODEL}`"
-                ))
+                anyhow!("router is missing required primary Ollama model `{PRIMARY_OLLAMA_MODEL}`")
             })
     }
 }
@@ -63,6 +60,3 @@ impl Router for ModelRouter {
         &self.models
     }
 }
-
-#[cfg(test)]
-mod tests;

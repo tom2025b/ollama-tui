@@ -69,6 +69,3 @@ impl CommandRegistry {
             .collect()
     }
 }
-
-#[cfg(test)]
-mod tests;

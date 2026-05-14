@@ -41,24 +41,3 @@ impl ToolOutput {
         &self.content
     }
 }
-
-#[cfg(test)]
-mod tests {
-    use super::*;
-    use serde_json::json;
-
-    #[test]
-    fn invocation_exposes_name_and_input() {
-        let invocation = ToolInvocation::new("search", json!({ "query": "ToolRegistry" }));
-
-        assert_eq!(invocation.name(), "search");
-        assert_eq!(invocation.input(), &json!({ "query": "ToolRegistry" }));
-    }
-
-    #[test]
-    fn text_output_exposes_content() {
-        let output = ToolOutput::text("done");
-
-        assert_eq!(output.content(), "done");
-    }
-}

@@ -1,5 +1,6 @@
 use std::time::Duration;
 
+use anyhow::anyhow;
 use reqwest::Client;
 
 use super::host::{OLLAMA_HOST_ENV, default_host, normalize_host};
@@ -10,7 +11,7 @@ use crate::providers::ollama::stream::{
     process_final_ollama_stream_buffer, process_ollama_stream_buffer,
 };
 use crate::providers::ollama::types::ChatRequest;
-use crate::{Error, Result};
+use crate::Result;
 
 /// How long one Ollama request may run before the app gives up.
 const REQUEST_TIMEOUT: Duration = Duration::from_secs(300);
@@ -34,7 +35,7 @@ impl OllamaClient {
         let http = Client::builder()
             .timeout(REQUEST_TIMEOUT)
             .build()
-            .map_err(|source| Error::http_client_build("Ollama", source))?;
+            .map_err(|e| anyhow!("failed to build Ollama HTTP client: {e}"))?;
 
         Ok(Self { base_url, http })
     }
@@ -67,16 +68,14 @@ impl OllamaClient {
             .get(&url)
             .send()
             .await
-            .map_err(|source| Error::http_request("Ollama", source))?;
+            .map_err(|e| anyhow!("failed to contact Ollama: {e}"))?;
         let response = require_success(response).await?;
-        let body = response.text().await.map_err(|source| {
-            Error::provider_response(
-                "Ollama",
-                format!("failed to read `/api/tags` response body: {source}"),
-            )
-        })?;
+        let body = response
+            .text()
+            .await
+            .map_err(|e| anyhow!("failed to read Ollama /api/tags response body: {e}"))?;
         let body = serde_json::from_str::<TagsResponse>(&body)
-            .map_err(|source| Error::json("Ollama /api/tags response", source))?;
+            .map_err(|e| anyhow!("failed to process JSON for Ollama /api/tags response: {e}"))?;
 
         Ok(body.models)
     }
@@ -104,14 +103,16 @@ impl OllamaClient {
             .json(&request)
             .send()
             .await
-            .map_err(|source| Error::http_request("Ollama", source))?;
+            .map_err(|e| anyhow!("failed to contact Ollama: {e}"))?;
 
         let mut response = require_success(response).await?;
         let (mut buffer, mut answer, mut pending_utf8) = (String::new(), String::new(), Vec::new());
 
-        while let Some(chunk) = response.chunk().await.map_err(|source| {
-            Error::streaming("Ollama", format!("failed to read stream chunk: {source}"))
-        })? {
+        while let Some(chunk) = response
+            .chunk()
+            .await
+            .map_err(|e| anyhow!("Ollama streaming error: failed to read stream chunk: {e}"))?
+        {
             append_utf8_chunk("Ollama", &mut pending_utf8, &mut buffer, &chunk)?;
             process_ollama_stream_buffer(&mut buffer, &mut answer, &mut on_token)?;
         }

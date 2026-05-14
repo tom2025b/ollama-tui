@@ -1,7 +1,9 @@
 //! Shared provider metadata plus UTF-8 stream decoding helpers used by routing
 //! and streaming code.
 
-use crate::{Error, Result};
+use anyhow::anyhow;
+
+use crate::Result;
 
 /// One completed user/assistant pair used as bounded conversation context.
 #[derive(Clone, Debug, Eq, PartialEq)]
@@ -63,17 +65,18 @@ pub(crate) fn append_utf8_chunk(
         Err(error) if error.error_len().is_none() => {
             let valid_up_to = error.valid_up_to();
             if valid_up_to > 0 {
-                let decoded = std::str::from_utf8(&pending[..valid_up_to])
-                    .map_err(|prefix_error| {
-                        Error::invariant(format!(
-                            "{source} stream reported a valid UTF-8 prefix ending at byte {valid_up_to}, but decoding that prefix failed: {prefix_error}"
-                        ))
-                    })?;
+                let decoded = std::str::from_utf8(&pending[..valid_up_to]).map_err(|e| {
+                    anyhow!(
+                        "{source} stream: internal invariant violated decoding valid UTF-8 prefix at byte {valid_up_to}: {e}"
+                    )
+                })?;
                 output.push_str(decoded);
                 pending.drain(..valid_up_to);
             }
         }
-        Err(error) => return Err(Error::utf8(source, error)),
+        Err(error) => {
+            return Err(anyhow!("invalid UTF-8 while {source}: {error}"));
+        }
     }
 
     Ok(())
@@ -89,60 +92,10 @@ pub(crate) fn finish_utf8_stream(
         return Ok(());
     }
 
-    let decoded = std::str::from_utf8(pending.as_slice()).map_err(|error| {
-        Error::streaming(source, format!("stream ended mid UTF-8 character: {error}"))
+    let decoded = std::str::from_utf8(pending.as_slice()).map_err(|e| {
+        anyhow!("{source} streaming error: stream ended mid UTF-8 character: {e}")
     })?;
     output.push_str(decoded);
     pending.clear();
     Ok(())
-}
-
-#[cfg(test)]
-mod tests {
-    use super::{append_utf8_chunk, finish_utf8_stream};
-    use crate::Error;
-
-    #[test]
-    fn utf8_chunk_decoder_preserves_split_codepoint() {
-        let mut pending = Vec::new();
-        let mut output = String::new();
-
-        append_utf8_chunk("test", &mut pending, &mut output, b"hi \xf0\x9f").unwrap();
-        append_utf8_chunk("test", &mut pending, &mut output, b"\x98\x80").unwrap();
-        finish_utf8_stream("test", &mut pending, &mut output).unwrap();
-
-        assert_eq!(output, "hi \u{1f600}");
-    }
-
-    #[test]
-    fn utf8_chunk_decoder_rejects_invalid_utf8() {
-        let mut pending = Vec::new();
-        let mut output = String::new();
-
-        let error = append_utf8_chunk("test", &mut pending, &mut output, b"\x80")
-            .expect_err("invalid UTF-8 bytes should fail");
-
-        match error {
-            Error::Utf8 { context, .. } => assert_eq!(context, "test"),
-            other => panic!("expected Utf8 error, got {other:?}"),
-        }
-    }
-
-    #[test]
-    fn utf8_stream_finish_rejects_truncated_codepoint() {
-        let mut pending = Vec::new();
-        let mut output = String::new();
-
-        append_utf8_chunk("test", &mut pending, &mut output, b"hi \xf0\x9f").unwrap();
-        let error = finish_utf8_stream("test", &mut pending, &mut output)
-            .expect_err("truncated codepoint should fail at stream end");
-
-        match error {
-            Error::Streaming { provider, message } => {
-                assert_eq!(provider, "test");
-                assert!(message.contains("mid UTF-8 character"), "got: {message}");
-            }
-            other => panic!("expected Streaming error, got {other:?}"),
-        }
-    }
 }

@@ -25,7 +25,8 @@ mod subcommands;
 
 pub use bootstrap::run;
 pub use errors::{
-    Error, Result, debug_mode_enabled, friendly_error, init_debug_mode_from_env, toggle_debug_mode,
+    Context, Error, Result, anyhow, debug_mode_enabled, friendly_error, init_debug_mode_from_env,
+    toggle_debug_mode,
 };
 pub use llm::ConversationTurn;
 pub use stream::{
